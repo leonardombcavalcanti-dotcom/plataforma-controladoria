@@ -1,0 +1,251 @@
+// Painéis de ação da demanda — bloqueio (Fluxo 6 enriquecido), delegação,
+// encerramento (ADR-09), reprovação de validação, conclusão com pendências.
+import { useState } from 'react';
+import type { CausaBloqueio, Demanda, MotivoEncerramento } from '../../domain/demandas';
+import { CAUSA_BLOQUEIO, MOTIVO_ENCERRAMENTO } from '../../domain/demandas';
+import { usePessoas } from '../../data/queries';
+
+function PainelBase(props: { titulo: string; children: React.ReactNode; onFechar: () => void }) {
+  return (
+    <div className="modal-fundo" onClick={props.onFechar}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2>{props.titulo}</h2>
+        {props.children}
+      </div>
+    </div>
+  );
+}
+
+export function PainelBloqueio(props: {
+  onConfirmar: (causa: CausaBloqueio, descricao: string, previsao: string | null, pedirAjuda: boolean) => void;
+  onFechar: () => void;
+}) {
+  const [causa, setCausa] = useState<CausaBloqueio>('sistema');
+  const [descricao, setDescricao] = useState('');
+  const [previsao, setPrevisao] = useState('');
+  const [pedirAjuda, setPedirAjuda] = useState(false);
+  return (
+    <PainelBase titulo="Por que esta demanda está bloqueada?" onFechar={props.onFechar}>
+      <p className="suave" style={{ marginBottom: 12 }}>
+        A causa alimenta o indicador "maior causa de atrasos". Um único ato: ninguém precisa ser avisado por fora.
+      </p>
+      <div className="grade" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 12 }}>
+        {(Object.entries(CAUSA_BLOQUEIO) as [CausaBloqueio, string][]).map(([k, v]) => (
+          <button key={k} className={`btn mini ${causa === k ? 'primario' : ''}`} onClick={() => setCausa(k)}>
+            {v}
+          </button>
+        ))}
+      </div>
+      <label className="campo">
+        <span>Descreva rapidamente</span>
+        <textarea autoFocus value={descricao} onChange={(e) => setDescricao(e.target.value)}
+                  placeholder="Ex.: acesso ao ERP caiu desde 9h40" />
+      </label>
+      <label className="campo">
+        <span>Previsão de desbloqueio (opcional)</span>
+        <input type="date" value={previsao} onChange={(e) => setPrevisao(e.target.value)} />
+      </label>
+      <label className="linha" style={{ cursor: 'pointer', marginBottom: 8 }}>
+        <input type="checkbox" style={{ width: 'auto' }} checked={pedirAjuda}
+               onChange={(e) => setPedirAjuda(e.target.checked)} />
+        <span>Solicitar ajuda ao gestor</span>
+      </label>
+      <div className="acoes">
+        <button className="btn" onClick={props.onFechar}>Cancelar</button>
+        <button className="btn primario" disabled={!descricao.trim()}
+                onClick={() => props.onConfirmar(causa, descricao.trim(), previsao || null, pedirAjuda)}>
+          Confirmar bloqueio
+        </button>
+      </div>
+    </PainelBase>
+  );
+}
+
+export function PainelDelegacao(props: {
+  demanda: Demanda;
+  onConfirmar: (novoResponsavel: string, mensagem: string) => void;
+  onFechar: () => void;
+}) {
+  const { data: pessoas } = usePessoas();
+  const [para, setPara] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  return (
+    <PainelBase titulo="Delegar demanda" onFechar={props.onFechar}>
+      <p className="suave" style={{ marginBottom: 12 }}>
+        Quem delega vira observador automaticamente e segue acompanhando (ADR-08). Toda a cadeia fica na timeline.
+      </p>
+      <label className="campo">
+        <span>Novo responsável</span>
+        <select autoFocus value={para} onChange={(e) => setPara(e.target.value)}>
+          <option value="">Selecione…</option>
+          {(pessoas ?? []).filter((p) => p.id !== props.demanda.responsavel_id).map((p) => (
+            <option key={p.id} value={p.id}>{p.nome}{p.cargo ? ` — ${p.cargo}` : ''}</option>
+          ))}
+        </select>
+      </label>
+      <label className="campo">
+        <span>Mensagem de contexto (opcional)</span>
+        <textarea value={mensagem} onChange={(e) => setMensagem(e.target.value)}
+                  placeholder="Ex.: priorize as premissas de frota" />
+      </label>
+      <div className="acoes">
+        <button className="btn" onClick={props.onFechar}>Cancelar</button>
+        <button className="btn primario" disabled={!para}
+                onClick={() => props.onConfirmar(para, mensagem.trim())}>
+          Delegar
+        </button>
+      </div>
+    </PainelBase>
+  );
+}
+
+export function PainelEncerramento(props: {
+  demandas: Demanda[];       // candidatas a "original" (duplicada)
+  onConfirmar: (motivo: MotivoEncerramento, justificativa: string, original: string | null) => void;
+  onFechar: () => void;
+}) {
+  const [motivo, setMotivo] = useState<MotivoEncerramento>('cancelada');
+  const [justificativa, setJustificativa] = useState('');
+  const [original, setOriginal] = useState('');
+  const pode = justificativa.trim() && (motivo !== 'duplicada' || original);
+  return (
+    <PainelBase titulo="Encerrar sem execução" onFechar={props.onFechar}>
+      <p className="suave" style={{ marginBottom: 12 }}>
+        Encerramento ≠ conclusão (ADR-09): não conta como produtividade e alimenta a qualidade da entrada de demandas.
+      </p>
+      <div className="linha" style={{ marginBottom: 12 }}>
+        {(Object.entries(MOTIVO_ENCERRAMENTO) as [MotivoEncerramento, string][]).map(([k, v]) => (
+          <button key={k} className={`btn mini ${motivo === k ? 'primario' : ''}`} onClick={() => setMotivo(k)}>
+            {v}
+          </button>
+        ))}
+      </div>
+      {motivo === 'duplicada' && (
+        <label className="campo">
+          <span>Qual é a demanda original?</span>
+          <select value={original} onChange={(e) => setOriginal(e.target.value)}>
+            <option value="">Selecione…</option>
+            {props.demandas.map((d) => <option key={d.id} value={d.id}>{d.titulo}</option>)}
+          </select>
+        </label>
+      )}
+      <label className="campo">
+        <span>Justificativa (obrigatória — fica na auditoria)</span>
+        <textarea autoFocus value={justificativa} onChange={(e) => setJustificativa(e.target.value)} />
+      </label>
+      <div className="acoes">
+        <button className="btn" onClick={props.onFechar}>Cancelar</button>
+        <button className="btn perigo" disabled={!pode}
+                onClick={() => props.onConfirmar(motivo, justificativa.trim(), original || null)}>
+          Encerrar demanda
+        </button>
+      </div>
+    </PainelBase>
+  );
+}
+
+export function PainelReprovacao(props: {
+  onConfirmar: (motivo: string) => void;
+  onFechar: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  return (
+    <PainelBase titulo="Reprovar validação" onFechar={props.onFechar}>
+      <p className="suave" style={{ marginBottom: 12 }}>
+        A demanda volta para Em Execução e o retrabalho é registrado (+1) — insumo do indicador de qualidade.
+      </p>
+      <label className="campo">
+        <span>O que precisa ser corrigido?</span>
+        <textarea autoFocus value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+      </label>
+      <div className="acoes">
+        <button className="btn" onClick={props.onFechar}>Cancelar</button>
+        <button className="btn perigo" disabled={!motivo.trim()} onClick={() => props.onConfirmar(motivo.trim())}>
+          Reprovar e devolver
+        </button>
+      </div>
+    </PainelBase>
+  );
+}
+
+export function PainelReabertura(props: {
+  onConfirmar: (justificativa: string, novoPrazo: string) => void;
+  onFechar: () => void;
+}) {
+  const [justificativa, setJustificativa] = useState('');
+  const [prazo, setPrazo] = useState('');
+  return (
+    <PainelBase titulo="Reabrir demanda" onFechar={props.onFechar}>
+      <label className="campo">
+        <span>Justificativa (obrigatória)</span>
+        <textarea autoFocus value={justificativa} onChange={(e) => setJustificativa(e.target.value)} />
+      </label>
+      <label className="campo">
+        <span>Novo prazo</span>
+        <input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} />
+      </label>
+      <div className="acoes">
+        <button className="btn" onClick={props.onFechar}>Cancelar</button>
+        <button className="btn primario" disabled={!justificativa.trim() || !prazo}
+                onClick={() => props.onConfirmar(justificativa.trim(), prazo)}>
+          Reabrir
+        </button>
+      </div>
+    </PainelBase>
+  );
+}
+
+export function PainelPendencias(props: {
+  quantidade: number;
+  onConfirmar: () => void;
+  onFechar: () => void;
+}) {
+  return (
+    <PainelBase titulo={`Concluir com ${props.quantidade} item(ns) pendente(s)?`} onFechar={props.onFechar}>
+      <p className="suave">
+        O checklist não está completo. A conclusão com pendências fica registrada na auditoria da demanda.
+      </p>
+      <div className="acoes">
+        <button className="btn" onClick={props.onFechar}>Voltar ao checklist</button>
+        <button className="btn primario" onClick={props.onConfirmar}>Concluir mesmo assim</button>
+      </div>
+    </PainelBase>
+  );
+}
+
+export function PainelAvaliacao(props: {
+  onConfirmar: (nota: number, comentario: string) => void;
+  onFechar: () => void;
+}) {
+  const [nota, setNota] = useState(0);
+  const [comentario, setComentario] = useState('');
+  return (
+    <PainelBase titulo="Avaliar a entrega" onFechar={props.onFechar}>
+      <p className="suave" style={{ marginBottom: 12 }}>
+        A avaliação é imutável e alimenta os indicadores de desempenho — avalie a entrega, nunca a pessoa.
+      </p>
+      <div className="linha" style={{ marginBottom: 12 }}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button key={n} className="btn mini" aria-label={`${n} estrela(s)`}
+                  style={{ fontSize: 18, color: n <= nota ? 'var(--cor-atencao)' : 'var(--texto-mudo)' }}
+                  onClick={() => setNota(n)}>
+            ★
+          </button>
+        ))}
+        <span className="mudo">{nota > 0 ? `${nota}/5` : 'selecione'}</span>
+      </div>
+      <label className="campo">
+        <span>Comentário (opcional)</span>
+        <textarea value={comentario} onChange={(e) => setComentario(e.target.value)}
+                  placeholder="O que foi bem? O que melhorar na próxima?" />
+      </label>
+      <div className="acoes">
+        <button className="btn" onClick={props.onFechar}>Cancelar</button>
+        <button className="btn primario" disabled={nota === 0}
+                onClick={() => props.onConfirmar(nota, comentario.trim())}>
+          Registrar avaliação
+        </button>
+      </div>
+    </PainelBase>
+  );
+}

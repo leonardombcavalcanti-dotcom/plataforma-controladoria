@@ -1,0 +1,14 @@
+# dependências e build
+node_modules/
+dist/
+*.tsbuildinfo
+
+# segredos — NUNCA versionar (chaves do Supabase)
+.env
+.env.*
+!.env.example
+
+# sistema e logs
+*.log
+.DS_Store
+Thumbs.db

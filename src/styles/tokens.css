@@ -1,0 +1,123 @@
+/* ============================================================
+   Design Tokens — implementação da Product Design Constitution
+   Temas: claro (padrão) · escuro · dourado & preto
+   Cor é semântica (Art. 13): trocar tema = trocar variáveis.
+   ============================================================ */
+:root {
+  /* Cores semânticas */
+  --cor-primaria: #2456c4;
+  --cor-primaria-hover: #3567d5;
+  --cor-primaria-suave: #e9effc;
+  --cor-primaria-contraste: #ffffff;
+  --cor-saudavel: #157347;
+  --cor-saudavel-suave: #e3f3ea;
+  --cor-atencao: #9a6700;
+  --cor-atencao-suave: #fdf3d7;
+  --cor-critico: #b42318;
+  --cor-critico-suave: #fbeae8;
+  --cor-info-suave: #eef1f6;
+
+  /* Neutros (Art. 4: conforto prolongado) */
+  --fundo: #f4f6f9;
+  --superficie: #ffffff;
+  --borda: #e3e7ee;
+  --texto: #1a2433;
+  --texto-suave: #5c6b80;
+  --texto-mudo: #8b97a8;
+
+  /* Sidebar profissional (navy profundo mesmo no tema claro) */
+  --sidebar-fundo: #101a2c;
+  --sidebar-texto: #aeb9cc;
+  --sidebar-texto-forte: #ffffff;
+  --sidebar-item-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-item-ativo: rgba(83, 128, 233, 0.22);
+  --sidebar-ativo-texto: #9db8f5;
+  --sidebar-marca: #6f97ee;
+
+  /* Forma */
+  --raio: 12px;
+  --raio-sm: 8px;
+  --sombra: 0 1px 2px rgba(16, 26, 44, 0.06), 0 4px 14px rgba(16, 26, 44, 0.06);
+  --sombra-alta: 0 2px 6px rgba(16, 26, 44, 0.08), 0 10px 28px rgba(16, 26, 44, 0.12);
+  --sombra-drawer: -12px 0 40px rgba(16, 26, 44, 0.16);
+
+  /* Movimento (Art. 16) */
+  --t-hover: 150ms ease-out;
+  --t-toast: 200ms ease-out;
+  --t-drawer: 300ms ease-out;
+
+  --fonte: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --fonte-mono: 'Cascadia Code', 'Consolas', monospace;
+}
+
+/* ---------- TEMA ESCURO ---------- */
+[data-tema='escuro'] {
+  --cor-primaria: #5183f0;
+  --cor-primaria-hover: #6b97f5;
+  --cor-primaria-suave: #1c2b4a;
+  --cor-primaria-contraste: #ffffff;
+  --cor-saudavel: #3dbd80;
+  --cor-saudavel-suave: #143024;
+  --cor-atencao: #e0a63a;
+  --cor-atencao-suave: #33270e;
+  --cor-critico: #ef6360;
+  --cor-critico-suave: #3a1715;
+  --cor-info-suave: #1d2733;
+
+  --fundo: #0f141b;
+  --superficie: #161d27;
+  --borda: #263140;
+  --texto: #e7ecf3;
+  --texto-suave: #9fadbf;
+  --texto-mudo: #6b7a8d;
+
+  --sidebar-fundo: #0a0f16;
+  --sidebar-texto: #8fa0b5;
+  --sidebar-texto-forte: #ffffff;
+  --sidebar-item-hover: rgba(255, 255, 255, 0.05);
+  --sidebar-item-ativo: rgba(81, 131, 240, 0.22);
+  --sidebar-ativo-texto: #9db8f5;
+  --sidebar-marca: #6f97ee;
+
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 14px rgba(0, 0, 0, 0.35);
+  --sombra-alta: 0 2px 6px rgba(0, 0, 0, 0.45), 0 10px 28px rgba(0, 0, 0, 0.5);
+  --sombra-drawer: -12px 0 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- TEMA DOURADO & PRETO ---------- */
+[data-tema='dourado'] {
+  --cor-primaria: #d4af37;
+  --cor-primaria-hover: #e5c65a;
+  --cor-primaria-suave: #2b2310;
+  --cor-primaria-contraste: #191307;
+  --cor-saudavel: #86c06d;
+  --cor-saudavel-suave: #1d2a14;
+  --cor-atencao: #e0a63a;
+  --cor-atencao-suave: #33270e;
+  --cor-critico: #e05a52;
+  --cor-critico-suave: #381513;
+  --cor-info-suave: #23200f;
+
+  --fundo: #0d0b08;
+  --superficie: #171310;
+  --borda: #302818;
+  --texto: #f0e9d9;
+  --texto-suave: #c0b190;
+  --texto-mudo: #8a7c5e;
+
+  --sidebar-fundo: #080604;
+  --sidebar-texto: #a4966f;
+  --sidebar-texto-forte: #f0e2b6;
+  --sidebar-item-hover: rgba(212, 175, 55, 0.08);
+  --sidebar-item-ativo: rgba(212, 175, 55, 0.18);
+  --sidebar-ativo-texto: #e5c65a;
+  --sidebar-marca: #d4af37;
+
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 14px rgba(0, 0, 0, 0.45);
+  --sombra-alta: 0 2px 6px rgba(0, 0, 0, 0.55), 0 10px 28px rgba(0, 0, 0, 0.6);
+  --sombra-drawer: -12px 0 40px rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-hover: 0ms; --t-toast: 0ms; --t-drawer: 0ms; }
+}
