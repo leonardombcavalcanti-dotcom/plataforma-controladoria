@@ -91,6 +91,7 @@ export interface RecorrenciaItem {
   peso: number | null;
   prazo: string | null;
   recorrencia: import('./demandas').Demanda['recorrencia'];
+  anexo_obrigatorio: boolean;
   exige_validacao: boolean;
   ordem: number;
   archived_at: string | null;

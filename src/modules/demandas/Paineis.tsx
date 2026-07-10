@@ -1,8 +1,8 @@
 // Painéis de ação da demanda — bloqueio (Fluxo 6 enriquecido), delegação,
 // encerramento (ADR-09), reprovação de validação, conclusão com pendências.
 import { useState } from 'react';
-import type { CausaBloqueio, Demanda, MotivoEncerramento } from '../../domain/demandas';
-import { CAUSA_BLOQUEIO, MOTIVO_ENCERRAMENTO } from '../../domain/demandas';
+import type { CausaBloqueio, ComplexidadeDemanda, Demanda, MotivoEncerramento, PrioridadeDemanda, ValorDemanda } from '../../domain/demandas';
+import { CAUSA_BLOQUEIO, COMPLEXIDADE, MOTIVO_ENCERRAMENTO, PRIORIDADE, VALOR } from '../../domain/demandas';
 import { usePessoas } from '../../data/queries';
 
 function PainelBase(props: { titulo: string; children: React.ReactNode; onFechar: () => void }) {
@@ -244,6 +244,78 @@ export function PainelAvaliacao(props: {
         <button className="btn primario" disabled={nota === 0}
                 onClick={() => props.onConfirmar(nota, comentario.trim())}>
           Registrar avaliação
+        </button>
+      </div>
+    </PainelBase>
+  );
+}
+
+// Edição pós-criação (V2) — somente gestor/admin; toda mudança fica na auditoria.
+export function PainelEdicao(props: {
+  d: Demanda;
+  onConfirmar: (patch: Record<string, unknown>) => void;
+  onFechar: () => void;
+}) {
+  const { d } = props;
+  const [titulo, setTitulo] = useState(d.titulo);
+  const [descricao, setDescricao] = useState(d.descricao ?? '');
+  const [prazo, setPrazo] = useState(d.prazo);
+  const [prioridade, setPrioridade] = useState<PrioridadeDemanda>(d.prioridade);
+  const [valor, setValor] = useState<ValorDemanda>(d.valor);
+  const [complexidade, setComplexidade] = useState<ComplexidadeDemanda | ''>(d.complexidade ?? '');
+  const [peso, setPeso] = useState(d.peso !== null ? String(d.peso) : '');
+  const [estimado, setEstimado] = useState(d.tempo_estimado_h !== null ? String(d.tempo_estimado_h) : '');
+  const [anexoObrig, setAnexoObrig] = useState(d.anexo_obrigatorio);
+
+  return (
+    <PainelBase titulo="Editar demanda (gestor)" onFechar={props.onFechar}>
+      <p className="suave" style={{ marginBottom: 12 }}>
+        Ajustes de prazo e peso são decisão de gestor — a alteração fica registrada na timeline.
+      </p>
+      <label className="campo"><span>Título</span>
+        <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} /></label>
+      <div className="grade" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+        <label className="campo"><span>Prazo</span>
+          <input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} /></label>
+        <label className="campo"><span>Peso (1–10)</span>
+          <input type="number" min={1} max={10} value={peso} onChange={(e) => setPeso(e.target.value)} /></label>
+        <label className="campo"><span>Estimado (h)</span>
+          <input type="number" min={0.5} step={0.5} value={estimado} onChange={(e) => setEstimado(e.target.value)} /></label>
+        <label className="campo"><span>Prioridade</span>
+          <select value={prioridade} onChange={(e) => setPrioridade(e.target.value as PrioridadeDemanda)}>
+            {Object.entries(PRIORIDADE).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}
+          </select></label>
+        <label className="campo"><span>Valor</span>
+          <select value={valor} onChange={(e) => setValor(e.target.value as ValorDemanda)}>
+            {Object.entries(VALOR).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select></label>
+        <label className="campo"><span>Complexidade</span>
+          <select value={complexidade} onChange={(e) => setComplexidade(e.target.value as ComplexidadeDemanda | '')}>
+            <option value="">—</option>
+            {Object.entries(COMPLEXIDADE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select></label>
+      </div>
+      <label className="campo"><span>Descrição</span>
+        <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} /></label>
+      <label className="linha" style={{ cursor: 'pointer', marginBottom: 8 }}>
+        <input type="checkbox" style={{ width: 'auto' }} checked={anexoObrig}
+               onChange={(e) => setAnexoObrig(e.target.checked)} />
+        <span>Anexo de documentação obrigatório na conclusão</span>
+      </label>
+      <div className="acoes">
+        <button className="btn" onClick={props.onFechar}>Cancelar</button>
+        <button className="btn primario" disabled={!titulo.trim() || !prazo}
+          onClick={() => props.onConfirmar({
+            titulo: titulo.trim(),
+            descricao: descricao.trim() || null,
+            prazo,
+            prioridade, valor,
+            complexidade: complexidade || null,
+            peso: peso ? Number(peso) : null,
+            tempo_estimado_h: estimado ? Number(estimado) : null,
+            anexo_obrigatorio: anexoObrig,
+          })}>
+          Salvar alterações
         </button>
       </div>
     </PainelBase>

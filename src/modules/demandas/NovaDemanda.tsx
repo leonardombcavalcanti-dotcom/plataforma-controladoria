@@ -32,6 +32,7 @@ export function NovaDemanda(props: { solicitacao?: boolean }) {
   const [objetivo, setObjetivo] = useState('');
   const [estimadoH, setEstimadoH] = useState('');
   const [exigeValidacao, setExigeValidacao] = useState(false);
+  const [anexoObrig, setAnexoObrig] = useState(false);
 
   const ativos = useMemo(
     () => (processos ?? []).filter((p) => ['ativo', 'em_revisao'].includes(p.status)),
@@ -71,6 +72,7 @@ export function NovaDemanda(props: { solicitacao?: boolean }) {
           responsavel_id: solicitacao ? null : responsavelId,
           status: solicitacao ? 'solicitada' : 'aberta',
           exige_validacao: exigeValidacao,
+          anexo_obrigatorio: anexoObrig,
           prazo,
           recorrencia: (recorrencia || null) as 'diaria' | 'semanal' | 'mensal' | 'anual' | null,
           peso: peso ? Number(peso) : null,
@@ -202,11 +204,18 @@ export function NovaDemanda(props: { solicitacao?: boolean }) {
                      placeholder="Ex.: Fechamento Contábil, Compliance, Melhoria de Processo…" />
             </label>
             {!solicitacao && (
-              <label className="linha" style={{ cursor: 'pointer', marginBottom: 8 }}>
-                <input type="checkbox" style={{ width: 'auto' }} checked={exigeValidacao}
-                       onChange={(e) => setExigeValidacao(e.target.checked)} />
-                <span>Exige validação ao concluir (validador: você)</span>
-              </label>
+              <>
+                <label className="linha" style={{ cursor: 'pointer', marginBottom: 6 }}>
+                  <input type="checkbox" style={{ width: 'auto' }} checked={exigeValidacao}
+                         onChange={(e) => setExigeValidacao(e.target.checked)} />
+                  <span>Exige validação ao concluir (validador: você)</span>
+                </label>
+                <label className="linha" style={{ cursor: 'pointer', marginBottom: 8 }}>
+                  <input type="checkbox" style={{ width: 'auto' }} checked={anexoObrig}
+                         onChange={(e) => setAnexoObrig(e.target.checked)} />
+                  <span>📎 Anexo de documentação obrigatório na conclusão</span>
+                </label>
+              </>
             )}
           </>
         )}

@@ -19,9 +19,11 @@ import {
   PainelAvaliacao,
 } from './Paineis';
 import { AcoesSolicitacao } from './Solicitacoes';
+import { AnexosDemanda } from './Anexos';
+import { PainelEdicao } from './Paineis';
 
-type Aba = 'atividade' | 'checklist' | 'tempo';
-type Painel = 'bloqueio' | 'delegacao' | 'encerramento' | 'reprovacao' | 'reabertura' | 'pendencias' | 'avaliacao' | null;
+type Aba = 'atividade' | 'checklist' | 'tempo' | 'anexos';
+type Painel = 'bloqueio' | 'delegacao' | 'encerramento' | 'reprovacao' | 'reabertura' | 'pendencias' | 'avaliacao' | 'edicao' | null;
 
 export function FichaDemanda() {
   const { vista = 'inbox', id = '' } = useParams();
@@ -118,6 +120,7 @@ export function FichaDemanda() {
             {d.retrabalho > 0 && <Badge tom="atencao">Retrabalho ×{d.retrabalho}</Badge>}
             {d.avaliacao_nota !== null && <Badge tom="saudavel">{'★'.repeat(d.avaliacao_nota)}</Badge>}
             {d.status === 'concluida' && d.avaliacao_nota === null && <Badge tom="atencao">Aguarda avaliação</Badge>}
+            {d.anexo_obrigatorio && !finalizada && <Badge tom="atencao">📎 anexo obrigatório</Badge>}
             {d.recorrencia && <Badge tom="info">↻ {RECORRENCIA_DEMANDA[d.recorrencia]}</Badge>}
           </div>
 
@@ -190,6 +193,9 @@ export function FichaDemanda() {
                   <button className="btn mini perigo" onClick={() => setPainel('reprovacao')}>Reprovar</button>
                 </>
               )}
+              {!finalizada && souGestor && (
+                <button className="btn mini" onClick={() => setPainel('edicao')}>Editar</button>
+              )}
               {!finalizada && podeAgir && (
                 <button className="btn mini" onClick={() => setPainel('delegacao')}>Delegar</button>
               )}
@@ -207,7 +213,7 @@ export function FichaDemanda() {
           )}
 
           <nav className="abas" aria-label="Abas da demanda">
-            {([['atividade', 'Atividade'], ['checklist', `Checklist${pendentes ? ` (${pendentes})` : ''}`], ['tempo', 'Tempo']] as [Aba, string][]).map(([k, r]) => (
+            {([['atividade', 'Atividade'], ['checklist', `Checklist${pendentes ? ` (${pendentes})` : ''}`], ['anexos', d.anexo_obrigatorio ? 'Anexos 📎' : 'Anexos'], ['tempo', 'Tempo']] as [Aba, string][]).map(([k, r]) => (
               <button key={k} className={`aba ${aba === k ? 'ativa' : ''}`} onClick={() => setAba(k)}>{r}</button>
             ))}
           </nav>
@@ -298,6 +304,11 @@ export function FichaDemanda() {
             </div>
           )}
 
+          {aba === 'anexos' && (
+            <AnexosDemanda demandaId={id} obrigatorio={d.anexo_obrigatorio}
+              podeEditar={podeAgir && !finalizada && !ehSolicitacao} />
+          )}
+
           {aba === 'tempo' && (
             <div className="secao">
               <p className="suave" style={{ marginBottom: 12 }}>
@@ -366,6 +377,13 @@ export function FichaDemanda() {
           onConfirmar={(just, prazo) => {
             setPainel(null);
             executar(() => api.rpcReabrir(id, just, prazo), 'Demanda reaberta');
+          }} />
+      )}
+      {painel === 'edicao' && (
+        <PainelEdicao d={d} onFechar={() => setPainel(null)}
+          onConfirmar={(patch) => {
+            setPainel(null);
+            executar(() => api.salvarDemanda(id, patch as never), 'Demanda atualizada');
           }} />
       )}
       {painel === 'avaliacao' && (

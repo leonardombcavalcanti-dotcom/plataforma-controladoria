@@ -28,6 +28,7 @@ export function AbaOperacao(props: { processo: Processo }) {
   const [estimadoH, setEstimadoH] = useState('');
   const [objetivo, setObjetivo] = useState('');
   const [exigeValidacao, setExigeValidacao] = useState(false);
+  const [anexoObrig, setAnexoObrig] = useState(false);
   const [maisDetalhes, setMaisDetalhes] = useState(false);
 
   const somenteLeitura = ['obsoleto', 'arquivado'].includes(p.status);
@@ -52,6 +53,7 @@ export function AbaOperacao(props: { processo: Processo }) {
       tempo_estimado_h: estimadoH ? Number(estimadoH) : null,
       objetivo_negocio: objetivo.trim() || null,
       exige_validacao: exigeValidacao,
+      anexo_obrigatorio: anexoObrig,
       ordem: (itens?.length ?? 0) + 1,
     });
     setTitulo(''); setDescricao(''); setPeso(''); setEstimadoH(''); setPrazoData('');
@@ -78,6 +80,7 @@ export function AbaOperacao(props: { processo: Processo }) {
                   {r.peso !== null && <Badge tom="info">Peso {r.peso}</Badge>}
                   {r.recorrencia && <Badge tom="info">↻ {RECORRENCIA_DEMANDA[r.recorrencia]}</Badge>}
                   {r.exige_validacao && <Badge tom="atencao">Validação</Badge>}
+                  {r.anexo_obrigatorio && <Badge tom="atencao">📎 obrigatório</Badge>}
                   <div className="espaco" />
                   {!somenteLeitura && (
                     <button className="btn mini" onClick={() => remover.mutate(r.id)}>Remover</button>
@@ -183,10 +186,15 @@ export function AbaOperacao(props: { processo: Processo }) {
             </>
           )}
 
-          <label className="linha" style={{ marginBottom: 12, cursor: 'pointer' }}>
+          <label className="linha" style={{ marginBottom: 6, cursor: 'pointer' }}>
             <input type="checkbox" checked={exigeValidacao} onChange={(e) => setExigeValidacao(e.target.checked)}
                    style={{ width: 'auto' }} />
             <span>Exige validação ao concluir</span>
+          </label>
+          <label className="linha" style={{ marginBottom: 12, cursor: 'pointer' }}>
+            <input type="checkbox" checked={anexoObrig} onChange={(e) => setAnexoObrig(e.target.checked)}
+                   style={{ width: 'auto' }} />
+            <span>📎 Anexo de documentação obrigatório na conclusão</span>
           </label>
           <div className="linha">
             <div className="espaco" />

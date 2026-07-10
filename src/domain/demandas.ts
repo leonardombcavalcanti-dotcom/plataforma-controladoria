@@ -27,6 +27,7 @@ export interface Demanda {
   objetivo_negocio: string | null;
   processo_id: string | null;
   ocorrencia_id: string | null;
+  recorrencia_id: string | null;
   criador_id: string;
   responsavel_id: string | null;
   validador_id: string | null;
@@ -44,6 +45,7 @@ export interface Demanda {
   motivo_rejeicao: string | null;
   tempo_estimado_h: number | null;
   peso: number | null;
+  anexo_obrigatorio: boolean;
   retrabalho: number;
   recorrencia: 'diaria' | 'semanal' | 'mensal' | 'anual' | null;
   avaliacao_nota: number | null;

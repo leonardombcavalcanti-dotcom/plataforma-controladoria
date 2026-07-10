@@ -8,8 +8,9 @@ import {
 import { fmtData } from '../../domain/regras';
 import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import { Solicitacoes } from './Solicitacoes';
+import { HistoricoDemandas } from './Historico';
 
-type Vista = 'inbox' | 'minhas' | 'equipe' | 'observando' | 'solicitacoes' | 'arquivadas';
+type Vista = 'inbox' | 'minhas' | 'equipe' | 'observando' | 'solicitacoes' | 'historico' | 'arquivadas';
 
 const VISTAS: { chave: Vista; rotulo: string }[] = [
   { chave: 'inbox', rotulo: 'Inbox' },
@@ -17,6 +18,7 @@ const VISTAS: { chave: Vista; rotulo: string }[] = [
   { chave: 'equipe', rotulo: 'Equipe' },
   { chave: 'observando', rotulo: 'Observando' },
   { chave: 'solicitacoes', rotulo: 'Solicitações' },
+  { chave: 'historico', rotulo: 'Histórico (avulsas)' },
   { chave: 'arquivadas', rotulo: 'Encerradas' },
 ];
 
@@ -88,6 +90,8 @@ export function VistasDemandas() {
 
       {vista === 'solicitacoes' ? (
         <Solicitacoes />
+      ) : vista === 'historico' ? (
+        <HistoricoDemandas somenteAvulsas />
       ) : isLoading ? (
         <Carregando linhas={5} />
       ) : filtradas.length === 0 ? (

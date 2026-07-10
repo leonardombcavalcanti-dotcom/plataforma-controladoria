@@ -11,14 +11,16 @@ import { AbaOperacao } from './abas/Operacao';
 import { AbaOcorrencias } from './abas/Ocorrencias';
 import { AbaGovernanca } from './abas/Governanca';
 import { AbaIndicadores } from './abas/Indicadores';
+import { HistoricoDemandas } from '../demandas/Historico';
 
-type Aba = 'visao-geral' | 'como-executar' | 'operacao' | 'ocorrencias' | 'indicadores' | 'governanca';
+type Aba = 'visao-geral' | 'como-executar' | 'operacao' | 'ocorrencias' | 'historico' | 'indicadores' | 'governanca';
 
 const ABAS: { chave: Aba; rotulo: string }[] = [
   { chave: 'visao-geral', rotulo: 'Visão Geral' },
   { chave: 'como-executar', rotulo: 'Como Executar' },
   { chave: 'operacao', rotulo: 'Operação' },
   { chave: 'ocorrencias', rotulo: 'Ocorrências' },
+  { chave: 'historico', rotulo: 'Histórico' },
   { chave: 'indicadores', rotulo: 'Indicadores' },
   { chave: 'governanca', rotulo: 'Governança' },
 ];
@@ -103,6 +105,7 @@ export function FichaProcesso() {
               {aba === 'como-executar' && <AbaComoExecutar processo={p} />}
               {aba === 'operacao' && <AbaOperacao processo={p} />}
               {aba === 'ocorrencias' && <AbaOcorrencias processo={p} />}
+              {aba === 'historico' && <HistoricoDemandas processoId={p.id} />}
               {aba === 'indicadores' && <AbaIndicadores processo={p} />}
               {aba === 'governanca' && <AbaGovernanca processo={p} />}
             </div>

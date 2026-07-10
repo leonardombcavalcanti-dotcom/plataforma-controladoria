@@ -40,6 +40,7 @@ export interface NovaDemandaInput {
   exige_validacao?: boolean; prazo: string; tempo_estimado_h?: number | null;
   recorrencia?: 'diaria' | 'semanal' | 'mensal' | 'anual' | null;
   peso?: number | null;
+  anexo_obrigatorio?: boolean;
 }
 
 export async function criarDemanda(input: NovaDemandaInput, checklistHerdado: string[]): Promise<Demanda> {
@@ -54,6 +55,14 @@ export async function criarDemanda(input: NovaDemandaInput, checklistHerdado: st
     lancar(e2);
   }
   return demanda;
+}
+
+// Edição pós-criação (V2): campos não-governados; prazo/peso exigem gestor (guard no banco)
+export async function salvarDemanda(id: string, patch: Partial<Pick<Demanda,
+  'titulo' | 'descricao' | 'prazo' | 'prioridade' | 'valor' | 'complexidade' |
+  'peso' | 'tempo_estimado_h' | 'objetivo_negocio' | 'anexo_obrigatorio'>>): Promise<void> {
+  const { error } = await supabase.from('demandas').update(patch).eq('id', id);
+  lancar(error);
 }
 
 export async function listarChecklist(demandaId: string): Promise<ItemChecklist[]> {

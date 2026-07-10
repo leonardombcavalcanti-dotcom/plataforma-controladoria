@@ -69,6 +69,7 @@ export function BarraExcel(props: { processos: Processo[] }) {
         'Peso (1-10)': r.peso ?? '',
         'Tempo estimado (h)': r.tempo_estimado_h ?? '',
         'Exige validação': r.exige_validacao ? 'Sim' : 'Não',
+        'Anexo obrigatório': r.anexo_obrigatorio ? 'Sim' : 'Não',
       }));
       const abaExecutar = (arts ?? []).map((a) => ({
         'Processo': nomeProc.get(a.processo_id) ?? '',
@@ -192,6 +193,7 @@ export function BarraExcel(props: { processos: Processo[] }) {
               tempo_estimado_h: Number(r['Tempo estimado (h)']) > 0 ? Number(r['Tempo estimado (h)']) : null,
               objetivo_negocio: null,
               exige_validacao: /^s/i.test(String(r['Exige validação'] ?? '')),
+              anexo_obrigatorio: /^s/i.test(String(r['Anexo obrigatório'] ?? '')),
               ordem: ++ordemR,
             });
           }
