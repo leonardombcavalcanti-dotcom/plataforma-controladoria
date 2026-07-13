@@ -33,7 +33,7 @@ export async function renomearArea(id: string, nome: string): Promise<void> {
 }
 
 export interface PessoaInput {
-  nome: string; cargo: string | null; perfil: PerfilAcesso;
+  nome: string; email?: string | null; cargo: string | null; perfil: PerfilAcesso;
   gestor_id: string | null; area_id: string | null; ativa: boolean;
   auth_user_id?: string | null;
 }
@@ -128,7 +128,7 @@ export function useAdminMutations() {
     aprovarAcesso: useMutation({
       mutationFn: async (p: { acesso: AcessoPendente; tenantId: string; decididoPor: string }) => {
         await criarPessoa(p.tenantId, {
-          nome: p.acesso.nome, cargo: null, perfil: 'colaborador',
+          nome: p.acesso.nome, email: p.acesso.email, cargo: null, perfil: 'colaborador',
           gestor_id: null, area_id: null, ativa: true,
           auth_user_id: p.acesso.auth_user_id,
         });

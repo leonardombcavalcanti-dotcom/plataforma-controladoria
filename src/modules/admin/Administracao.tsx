@@ -193,6 +193,7 @@ function FormPessoa(props: {
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const { pessoa } = props;
   const [nome, setNome] = useState(pessoa?.nome ?? '');
+  const [email, setEmail] = useState((pessoa as { email?: string | null } | null)?.email ?? '');
   const [cargo, setCargo] = useState(pessoa?.cargo ?? '');
   const [perfil, setPerfil] = useState<PerfilAcesso>(pessoa?.perfil ?? 'colaborador');
   const [gestorId, setGestorId] = useState(pessoa?.gestor_id ?? '');
@@ -213,6 +214,9 @@ function FormPessoa(props: {
         <div style={{ marginTop: 12 }}>
           <label className="campo"><span>Nome</span>
             <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} autoFocus /></label>
+          <label className="campo"><span>E-mail (para os relatórios automáticos)</span>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                   placeholder="nome@asalocadora.com.br" /></label>
           <div className="grade" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <label className="campo"><span>Cargo</span>
               <input type="text" value={cargo} onChange={(e) => setCargo(e.target.value)} /></label>
@@ -252,7 +256,7 @@ function FormPessoa(props: {
           <button className="btn" onClick={props.onFechar}>Cancelar</button>
           <button className="btn primario" disabled={!nome.trim()}
                   onClick={() => props.onSalvar({
-                    nome: nome.trim(), cargo: cargo.trim() || null, perfil,
+                    nome: nome.trim(), email: email.trim() || null, cargo: cargo.trim() || null, perfil,
                     gestor_id: gestorId || null, area_id: areaId || null, ativa,
                   })}>
             Salvar

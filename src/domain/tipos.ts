@@ -21,6 +21,7 @@ export interface Pessoa {
   id: string;
   tenant_id: string;
   nome: string;
+  email?: string | null;
   cargo: string | null;
   perfil: PerfilAcesso;
   gestor_id: string | null;
