@@ -5,6 +5,7 @@ const PREFIXO = 'plataforma.ui.';
 
 type Prefs = {
   'tema': string;
+  'zoom': string;
   'sidebar': string;
   'processos.modo': string;
   'biblioteca.filtroStatus': string;       // '' = todos

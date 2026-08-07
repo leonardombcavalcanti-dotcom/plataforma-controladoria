@@ -16,12 +16,18 @@ export function AppShell(props: { children: ReactNode }) {
   const [criarAberto, setCriarAberto] = useState(false);
   const [tema, setTema] = useState(() => lerPref('tema', 'claro'));
   const [fechada, setFechada] = useState(() => lerPref('sidebar', 'aberta') === 'fechada');
+  const [zoom, setZoom] = useState(() => lerPref('zoom', '100'));
 
   useEffect(() => {
     if (tema === 'claro') delete document.documentElement.dataset.tema;
     else document.documentElement.dataset.tema = tema;
     gravarPref('tema', tema);
   }, [tema]);
+
+  useEffect(() => {
+    (document.body.style as unknown as { zoom: string }).zoom = `${Number(zoom) / 100}`;
+    gravarPref('zoom', zoom);
+  }, [zoom]);
 
   useEffect(() => {
     const atalho = (e: KeyboardEvent) => {
@@ -139,6 +145,16 @@ export function AppShell(props: { children: ReactNode }) {
               </>
             )}
           </div>
+          <select value={zoom} onChange={(e) => setZoom(e.target.value)} aria-label="Zoom da interface"
+                  title="Ajuste o zoom à sua tela"
+                  style={{ width: 'auto', padding: '5px 8px', fontSize: 12.5 }}>
+            <option value="70">🔍 70%</option>
+            <option value="80">🔍 80%</option>
+            <option value="90">🔍 90%</option>
+            <option value="100">🔍 100%</option>
+            <option value="110">🔍 110%</option>
+            <option value="125">🔍 125%</option>
+          </select>
           <select value={tema} onChange={(e) => setTema(e.target.value)} aria-label="Tema visual"
                   style={{ width: 'auto', padding: '5px 8px', fontSize: 12.5 }}>
             <option value="claro">◻ Claro</option>
