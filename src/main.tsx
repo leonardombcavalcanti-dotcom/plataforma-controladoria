@@ -10,6 +10,13 @@ import { lerPref } from './lib/prefs';
 const temaSalvo = lerPref('tema', 'claro');
 if (temaSalvo !== 'claro') document.documentElement.dataset.tema = temaSalvo;
 
+// PWA: registra o service worker (produção) — habilita instalar como app
+if ('serviceWorker' in navigator && !location.hostname.includes('localhost')) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js');
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });

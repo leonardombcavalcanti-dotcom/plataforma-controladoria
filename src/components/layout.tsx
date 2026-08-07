@@ -121,9 +121,8 @@ export function AppShell(props: { children: ReactNode }) {
 
       <div className="principal">
         <header className="topbar">
-          <button className="btn mini" onClick={() => setPaleta(true)}
-                  style={{ color: 'var(--texto-mudo)', minWidth: 220, textAlign: 'left' }}>
-            🔍 Buscar…  <span className="mono" style={{ float: 'right' }}>Ctrl+K</span>
+          <button className="btn mini busca-global" onClick={() => setPaleta(true)}>
+            🔍 <span className="busca-texto">Buscar…  <span className="mono" style={{ float: 'right' }}>Ctrl+K</span></span>
           </button>
           <div className="espaco" />
           <div style={{ position: 'relative' }}>
@@ -174,6 +173,30 @@ export function AppShell(props: { children: ReactNode }) {
         </header>
         <main className="conteudo">{props.children}</main>
       </div>
+      {/* Navegação mobile (PWA): barra inferior estilo app */}
+      <nav className="nav-mobile" aria-label="Navegação">
+        <NavLink to="/central" className={({ isActive }) => isActive ? 'ativo' : ''}>
+          <span style={{ position: 'relative' }}>🏠
+            {pendencias > 0 && <span className="ponto-alerta" style={{ position: 'absolute', top: -6, right: -14 }}>{pendencias}</span>}
+          </span>
+          <span>Central</span>
+        </NavLink>
+        <NavLink to="/demandas" className={({ isActive }) => isActive ? 'ativo' : ''}>
+          <span>📋</span><span>Demandas</span>
+        </NavLink>
+        <NavLink to="/processos" className={({ isActive }) => isActive ? 'ativo' : ''}>
+          <span>⚙️</span><span>Processos</span>
+        </NavLink>
+        <NavLink to="/equipe" className={({ isActive }) => isActive ? 'ativo' : ''}>
+          <span>👥</span><span>Equipe</span>
+        </NavLink>
+        <NavLink to="/indicadores" className={({ isActive }) => isActive ? 'ativo' : ''}>
+          <span>📊</span><span>Indicad.</span>
+        </NavLink>
+        <NavLink to="/calendario" className={({ isActive }) => isActive ? 'ativo' : ''}>
+          <span>📅</span><span>Agenda</span>
+        </NavLink>
+      </nav>
       <Toasts />
       <CommandPalette aberta={paleta} onFechar={() => setPaleta(false)} />
     </div>
