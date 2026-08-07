@@ -10,6 +10,7 @@ import {
 } from '../../domain/demandas';
 import { fmtData } from '../../domain/regras';
 import { Badge, Carregando } from '../../components/ui';
+import { MultiFiltro } from '../../components/MultiFiltro';
 
 type Vista = 'meu' | 'equipe' | 'obrigacoes';
 type Modo = 'grade' | 'semanas' | 'meses' | 'kanban';
@@ -105,9 +106,18 @@ export function Calendario() {
   const [ano, setAno] = useState(agora.getFullYear());
   const [mes, setMes] = useState(agora.getMonth());
   const [modo, setModo] = useState<Modo>('grade');
-  const [respFiltro, setRespFiltro] = useState('');
-  const [statusFiltro, setStatusFiltro] = useState('');
-  const [processoFiltro, setProcessoFiltro] = useState('');
+  const [respFiltro, setRespFiltro] = useState<string[]>([]);
+  const [statusFiltro, setStatusFiltro] = useState<string[]>([]);
+  const [processoFiltro, setProcessoFiltro] = useState<string[]>([]);
+  const [recFiltro, setRecFiltro] = useState('');
+  const [situacoes, setSituacoes] = useState<Set<string>>(new Set());
+  const alternarSituacao = (s: string) => setSituacoes((v) => {
+    const n = new Set(v); if (n.has(s)) n.delete(s); else n.add(s); return n;
+  });
+  const situacaoDe = (d: Demanda): string =>
+    ['concluida', 'encerrada'].includes(d.status) ? 'concluida'
+      : d.status === 'solicitada' ? 'solicitada'
+      : demandaAtrasada(d) ? 'atrasada' : 'andamento';
   const [diaAberto, setDiaAberto] = useState<string | null>(null);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const hojeIso = iso(agora);
@@ -122,13 +132,16 @@ export function Calendario() {
       if (vista === 'meu' && d.responsavel_id !== eu?.id &&
           !(d.status === 'solicitada' && d.criador_id === eu?.id)) return false;
       if (vista === 'obrigacoes' && d.processo_id === null) return false;
-      if (respFiltro && d.responsavel_id !== respFiltro) return false;
-      if (statusFiltro && d.status !== statusFiltro) return false;
-      if (processoFiltro && (processoFiltro === '__avulsa'
-        ? d.processo_id !== null : d.processo_id !== processoFiltro)) return false;
+      if (respFiltro.length > 0 && !respFiltro.includes(d.responsavel_id ?? '')) return false;
+      if (statusFiltro.length > 0 && !statusFiltro.includes(d.status)) return false;
+      if (processoFiltro.length > 0 && !processoFiltro.includes(d.processo_id ?? '__avulsa')) return false;
+      if (recFiltro === 'sim' && d.recorrencia === null) return false;
+      if (recFiltro === 'nao' && d.recorrencia !== null) return false;
+      if (situacoes.size > 0 && !situacoes.has(situacaoDe(d))) return false;
       return true;
     });
-  }, [demandas, vista, eu, respFiltro, statusFiltro, processoFiltro]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demandas, vista, eu, respFiltro, statusFiltro, processoFiltro, recFiltro, situacoes]);
 
   const itens = useMemo<Map<string, Item[]>>(() => {
     const fim = modo === 'meses' ? `${ano}-12-31` : iso(new Date(ano, mes + 1, 0));
@@ -136,7 +149,8 @@ export function Calendario() {
     const põe = (dia: string, it: Item) => mapa.set(dia, [...(mapa.get(dia) ?? []), it]);
     for (const d of filtradas) {
       põe(d.prazo, { d, projetada: false });
-      if (d.recorrencia && !['concluida', 'encerrada'].includes(d.status)) {
+      if (d.recorrencia && !['concluida', 'encerrada'].includes(d.status)
+          && (situacoes.size === 0 || situacoes.has('projetada'))) {
         let cur = d.prazo; let guarda = 0;
         while (guarda++ < 500) {
           cur = proximaData(cur, d.recorrencia);
@@ -146,7 +160,8 @@ export function Calendario() {
       }
     }
     return mapa;
-  }, [filtradas, modo, ano, mes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtradas, modo, ano, mes, situacoes]);
 
   const grade = useMemo(() => {
     const primeiro = new Date(ano, mes, 1);
@@ -260,33 +275,36 @@ export function Calendario() {
       </div>
 
       <div className="linha" style={{ marginBottom: 12, flexWrap: 'wrap' }}>
-        <select value={respFiltro} onChange={(e) => setRespFiltro(e.target.value)} style={{ maxWidth: 185 }}>
-          <option value="">Todos os responsáveis</option>
-          {(pessoas ?? []).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-        </select>
-        <select value={statusFiltro} onChange={(e) => setStatusFiltro(e.target.value)} style={{ maxWidth: 165 }}>
-          <option value="">Todos os status</option>
-          {(Object.entries(STATUS_DEMANDA) as [StatusDemanda, { rotulo: string }][])
-            .filter(([k]) => k !== 'rejeitada')
-            .map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}
-        </select>
-        <select value={processoFiltro} onChange={(e) => setProcessoFiltro(e.target.value)} style={{ maxWidth: 200 }}>
-          <option value="">Todos os processos</option>
-          {(processos ?? []).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-          <option value="__avulsa">Avulsas (sem processo)</option>
+        <MultiFiltro rotulo="Responsáveis" selecionados={respFiltro} onChange={setRespFiltro}
+          opcoes={(pessoas ?? []).map((p) => ({ id: p.id, nome: p.nome }))} />
+        <MultiFiltro rotulo="Status" selecionados={statusFiltro} onChange={setStatusFiltro}
+          opcoes={(Object.entries(STATUS_DEMANDA) as [StatusDemanda, { rotulo: string }][])
+            .filter(([k]) => k !== 'rejeitada').map(([k, v]) => ({ id: k, nome: v.rotulo }))} />
+        <MultiFiltro rotulo="Processos" selecionados={processoFiltro} onChange={setProcessoFiltro}
+          opcoes={[...(processos ?? []).map((p) => ({ id: p.id, nome: p.nome })),
+                   { id: '__avulsa', nome: 'Avulsas (sem processo)' }]} />
+        <select value={recFiltro} onChange={(e) => setRecFiltro(e.target.value)} style={{ maxWidth: 160 }}>
+          <option value="">Recorrência: todas</option>
+          <option value="sim">Somente recorrentes</option>
+          <option value="nao">Somente não recorrentes</option>
         </select>
       </div>
 
-      {modo !== 'kanban' && (
-        <div className="linha" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
-          <span className="mudo">Legenda:</span>
-          <span className="cal-item" style={{ marginTop: 0 }}>Em andamento</span>
-          <span className="cal-item atrasada" style={{ marginTop: 0 }}>Atrasada</span>
-          <span className="cal-item concluida" style={{ marginTop: 0 }}>Concluída</span>
-          <span className="cal-item solicitada" style={{ marginTop: 0 }}>Solicitação</span>
-          <span className="cal-item projetada" style={{ marginTop: 0 }}>↻ Recorrência prevista</span>
-        </div>
-      )}
+      <div className="linha" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
+        <span className="mudo">Legenda (clique para filtrar):</span>
+        {([['andamento', 'Em andamento', ''], ['atrasada', 'Atrasada', 'atrasada'],
+           ['concluida', 'Concluída', 'concluida'], ['solicitada', 'Solicitação', 'solicitada'],
+           ['projetada', '↻ Prevista', 'projetada']] as [string, string, string][]).map(([chave, rotulo, classe]) => (
+          <button key={chave} className={`cal-item ${classe} ${situacoes.has(chave) ? 'leg-ativa' : ''}`}
+                  style={{ marginTop: 0, border: 'none' }}
+                  onClick={() => alternarSituacao(chave)}>
+            {rotulo}{situacoes.has(chave) ? ' ✕' : ''}
+          </button>
+        ))}
+        {situacoes.size > 0 && (
+          <button className="btn mini" onClick={() => setSituacoes(new Set())}>Limpar</button>
+        )}
+      </div>
 
       {/* ===== DIÁRIO: clique no dia abre o resumo ===== */}
       {modo === 'grade' && (

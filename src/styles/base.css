@@ -292,3 +292,8 @@ input, textarea, select { background: var(--superficie); color: var(--texto); }
 }
 .dash-tab-linha:hover { background: var(--cor-info-suave); }
 .dash-corta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
+
+.dash-topo { display: grid; grid-template-columns: 1fr minmax(300px, 360px); gap: 10px; align-items: stretch; }
+@media (max-width: 900px) { .dash-topo { grid-template-columns: 1fr; } }
+.cal-item.leg-ativa { box-shadow: 0 0 0 2px var(--cor-primaria); font-weight: 700; }
+button.cal-item { font-family: inherit; cursor: pointer; }

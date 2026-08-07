@@ -116,6 +116,8 @@ export function Desempenho() {
   const [tipoF, setTipoF] = useState<string[]>([]);
   const [metrica, setMetrica] = useState<Metrica>('qtd');
   const [mesSel, setMesSel] = useState<string | null>(null);
+  const [recF, setRecF] = useState('');
+  const [situacaoSel, setSituacaoSel] = useState<'concluida' | 'atrasada' | 'andamento' | null>(null);
   const [ordem, setOrdem] = useState<{ col: string; asc: boolean }>({ col: 'prazo', asc: false });
   const [demandaSel, setDemandaSel] = useState<Demanda | null>(null);
 
@@ -151,19 +153,45 @@ export function Desempenho() {
       if (pessoaEfetiva.length > 0 && !pessoaEfetiva.includes(d.responsavel_id ?? '')) return false;
       if (processoF.length > 0 && !processoF.includes(d.processo_id ?? '__avulsa')) return false;
       if (tipoF.length > 0 && !tipoF.includes(d.tipo)) return false;
+      if (recF === 'sim' && d.recorrencia === null) return false;
+      if (recF === 'nao' && d.recorrencia !== null) return false;
       return true;
     });
-  }, [demandas, faixa, areaF, pessoaEfetiva, processoF, tipoF]);
+  }, [demandas, faixa, areaF, pessoaEfetiva, processoF, tipoF, recF]);
 
   // Recorte final (com o mês selecionado): competência = conclusão (finalizadas) ou prazo (ativas)
   const recorte = useMemo(() => {
-    if (!mesSel) return base;
-    return base.filter((d) => {
+    let lista = base;
+    if (mesSel) {
+      lista = lista.filter((d) => {
+        const chave = d.status === 'concluida' || d.status === 'encerrada'
+          ? (d.concluida_em ?? d.prazo).slice(0, 7)
+          : d.prazo.slice(0, 7);
+        return chave === mesSel;
+      });
+    }
+    if (situacaoSel) {
+      lista = lista.filter((d) => {
+        const fin = ['concluida', 'encerrada'].includes(d.status);
+        if (situacaoSel === 'concluida') return fin;
+        if (situacaoSel === 'atrasada') return !fin && demandaAtrasada(d);
+        return !fin && !demandaAtrasada(d);
+      });
+    }
+    return lista;
+  }, [base, mesSel, situacaoSel]);
+
+  // Pizza: composição por situação (do recorte SEM o corte de situação, para navegar)
+  const pizza = useMemo(() => {
+    const lista = !mesSel ? base : base.filter((d) => {
       const chave = d.status === 'concluida' || d.status === 'encerrada'
-        ? (d.concluida_em ?? d.prazo).slice(0, 7)
-        : d.prazo.slice(0, 7);
+        ? (d.concluida_em ?? d.prazo).slice(0, 7) : d.prazo.slice(0, 7);
       return chave === mesSel;
     });
+    const conc = lista.filter((d) => ['concluida', 'encerrada'].includes(d.status)).length;
+    const atra = lista.filter((d) => !['concluida', 'encerrada'].includes(d.status) && demandaAtrasada(d)).length;
+    const anda = lista.length - conc - atra;
+    return { conc, atra, anda, total: lista.length };
   }, [base, mesSel]);
 
   const concluidas = useMemo(() => recorte.filter((d) => d.status === 'concluida'), [recorte]);
@@ -257,8 +285,9 @@ export function Desempenho() {
 
   const limparTudo = () => {
     setAreaF([]); setPessoaF([]); setProcessoF([]); setTipoF([]); setMesSel(null);
+    setRecF(''); setSituacaoSel(null);
   };
-  const temFiltro = areaF.length + pessoaF.length + processoF.length + tipoF.length > 0 || mesSel;
+  const temFiltro = areaF.length + pessoaF.length + processoF.length + tipoF.length > 0 || mesSel || recF || situacaoSel;
 
   const Cab = (p: { col: string; children: ReactNode; w?: string }) => (
     <span style={{ width: p.w, flexShrink: 0, cursor: 'pointer', fontWeight: 600 }}
@@ -302,6 +331,11 @@ export function Desempenho() {
         <MultiFiltro rotulo="Tipos" selecionados={tipoF} onChange={setTipoF}
           opcoes={(Object.entries(TIPO_DEMANDA) as [TipoDemanda, string][])
             .map(([k, v]) => ({ id: k, nome: v }))} />
+        <select value={recF} onChange={(e) => setRecF(e.target.value)} style={{ maxWidth: 150 }}>
+          <option value="">Recorrência: todas</option>
+          <option value="sim">Recorrentes</option>
+          <option value="nao">Não recorrentes</option>
+        </select>
         {mesSel && (
           <Badge tom="info">📅 {fmtCompetencia(mesSel)} ✕</Badge>
         )}
@@ -316,8 +350,9 @@ export function Desempenho() {
         ))}
       </div>
 
-      {/* ===== KPIs ===== */}
-      <div className="dash-kpis secao">
+      {/* ===== Visão geral: KPIs + composição por situação ===== */}
+      <div className="dash-topo secao">
+      <div className="dash-kpis">
         <Kpi rotulo="Concluídas" valor={String(kpis.concluidas)} />
         <Kpi rotulo="SLA" valor={kpis.sla === null ? '—' : `${kpis.sla}%`}
              tom={kpis.sla !== null && kpis.sla < 70 ? 'critico' : kpis.sla !== null && kpis.sla >= 85 ? 'saudavel' : undefined} />
@@ -328,6 +363,9 @@ export function Desempenho() {
         <Kpi rotulo="Sem avaliação" valor={String(kpis.pendAval)} tom={kpis.pendAval > 0 ? 'atencao' : undefined} />
         <Kpi rotulo="Ativas" valor={String(kpis.ativas)} />
         <Kpi rotulo="Atrasadas" valor={String(kpis.atrasadas)} tom={kpis.atrasadas > 0 ? 'critico' : undefined} />
+      </div>
+      <PizzaStatus dados={pizza} ativo={situacaoSel}
+        onClique={(s) => setSituacaoSel(situacaoSel === s ? null : s)} />
       </div>
 
       {/* ===== Gráficos com cross-filter ===== */}
@@ -478,6 +516,66 @@ function Info(props: { r: string; v: string }) {
     <div>
       <div className="mudo" style={{ fontSize: 11.5 }}>{props.r}</div>
       <div>{props.v}</div>
+    </div>
+  );
+}
+
+// Donut por situação — 3 cores: concluída (verde), em andamento (âmbar), atrasada (vermelho).
+// As fatias/legendas são clicáveis e recortam KPIs e tabela.
+function PizzaStatus(props: {
+  dados: { conc: number; atra: number; anda: number; total: number };
+  ativo: 'concluida' | 'atrasada' | 'andamento' | null;
+  onClique: (s: 'concluida' | 'atrasada' | 'andamento') => void;
+}) {
+  const { conc, atra, anda, total } = props.dados;
+  const R = 52; const C = 2 * Math.PI * R;
+  const seg = (n: number) => (total > 0 ? (n / total) * C : 0);
+  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+  const fatias: { chave: 'concluida' | 'andamento' | 'atrasada'; n: number; cor: string; rotulo: string }[] = [
+    { chave: 'concluida', n: conc, cor: 'var(--cor-saudavel)', rotulo: 'Concluídas' },
+    { chave: 'andamento', n: anda, cor: 'var(--cor-atencao)', rotulo: 'Em andamento' },
+    { chave: 'atrasada', n: atra, cor: 'var(--cor-critico)', rotulo: 'Atrasadas' },
+  ];
+  let acumulado = 0;
+  return (
+    <div className="cartao" style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '12px 16px' }}>
+      <svg width="132" height="132" viewBox="0 0 132 132" role="img" aria-label="Demandas por situação">
+        <circle cx="66" cy="66" r={R} fill="none" stroke="var(--cor-info-suave)" strokeWidth="22" />
+        {fatias.map((f) => {
+          const el = f.n > 0 && (
+            <circle key={f.chave} cx="66" cy="66" r={R} fill="none"
+              stroke={f.cor} strokeWidth={props.ativo === f.chave ? 26 : 22}
+              strokeDasharray={`${seg(f.n)} ${C - seg(f.n)}`}
+              strokeDashoffset={-acumulado}
+              transform="rotate(-90 66 66)"
+              style={{ cursor: 'pointer', opacity: props.ativo && props.ativo !== f.chave ? 0.35 : 1,
+                       transition: 'opacity 150ms ease-out' }}
+              onClick={() => props.onClique(f.chave)} />
+          );
+          acumulado += seg(f.n);
+          return el;
+        })}
+        <text x="66" y="62" textAnchor="middle" style={{ fontSize: 22, fontWeight: 700, fill: 'var(--texto)' }}>
+          {total}
+        </text>
+        <text x="66" y="80" textAnchor="middle" style={{ fontSize: 10.5, fill: 'var(--texto-mudo)' }}>
+          demandas
+        </text>
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <h3 style={{ margin: 0 }}>Por situação</h3>
+        {fatias.map((f) => (
+          <button key={f.chave} className="dash-barra" style={{ padding: '3px 6px' }}
+                  onClick={() => props.onClique(f.chave)}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: f.cor, flexShrink: 0,
+                           outline: props.ativo === f.chave ? '2px solid var(--cor-primaria)' : 'none' }} />
+            <span style={{ fontSize: 12.5 }}>{f.rotulo}</span>
+            <span className="mudo" style={{ marginLeft: 'auto' }}>
+              {f.n} · {pct(f.n)}%{props.ativo === f.chave ? ' ✕' : ''}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
