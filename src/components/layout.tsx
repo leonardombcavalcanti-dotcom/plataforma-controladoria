@@ -18,6 +18,7 @@ export function AppShell(props: { children: ReactNode }) {
   const [fechada, setFechada] = useState(() => lerPref('sidebar', 'aberta') === 'fechada');
   const [zoom, setZoom] = useState(() => lerPref('zoom', '100'));
   const [atualizando, setAtualizando] = useState(false);
+  const [maisAberto, setMaisAberto] = useState(false);
 
   // Puxa a última versão publicada: limpa caches, atualiza o SW e recarrega.
   async function atualizarApp() {
@@ -218,7 +219,60 @@ export function AppShell(props: { children: ReactNode }) {
         <NavLink to="/calendario" className={({ isActive }) => isActive ? 'ativo' : ''}>
           <span>📅</span><span>Agenda</span>
         </NavLink>
+        <button className={maisAberto ? 'ativo' : ''} onClick={() => setMaisAberto(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+          <span>⚙︎</span><span>Mais</span>
+        </button>
       </nav>
+
+      {/* Folha "Mais" (mobile): tema, zoom, administração, atualizar, sair */}
+      {maisAberto && (
+        <>
+          <div className="drawer-fundo" style={{ zIndex: 44 }} onClick={() => setMaisAberto(false)} />
+          <div className="sheet-mobile" role="dialog" aria-label="Configurações">
+            <div className="linha" style={{ marginBottom: 4 }}>
+              <strong>{pessoa?.nome}</strong>
+              <span className="mudo">{pessoa?.cargo ?? ''}</span>
+              <div className="espaco" />
+              <button className="btn mini" onClick={() => setMaisAberto(false)}>✕</button>
+            </div>
+
+            <div className="mudo" style={{ fontSize: 12, fontWeight: 600 }}>Tema do ambiente</div>
+            <div className="linha" style={{ flexWrap: 'wrap' }}>
+              {([['claro', '◻ Claro'], ['escuro', '◼ Escuro'], ['dourado', '◆ Dourado']] as [string, string][]).map(([k, r]) => (
+                <button key={k} className={`btn mini ${tema === k ? 'primario' : ''}`}
+                        onClick={() => setTema(k)}>{r}</button>
+              ))}
+            </div>
+
+            <div className="mudo" style={{ fontSize: 12, fontWeight: 600 }}>Zoom da interface</div>
+            <div className="linha" style={{ flexWrap: 'wrap' }}>
+              {['70', '80', '90', '100', '110'].map((z) => (
+                <button key={z} className={`btn mini ${zoom === z ? 'primario' : ''}`}
+                        onClick={() => setZoom(z)}>{z}%</button>
+              ))}
+            </div>
+
+            {pessoa?.perfil === 'admin' && (
+              <button className="btn" style={{ width: '100%' }}
+                      onClick={() => { setMaisAberto(false); nav('/admin'); }}>
+                ⚙ Administração
+              </button>
+            )}
+            <button className="btn" style={{ width: '100%' }} disabled={atualizando}
+                    onClick={() => void atualizarApp()}>
+              ⟳ Atualizar app
+              <span className="mudo" style={{ marginLeft: 8, fontSize: 11 }}>
+                (versão de {new Date(__BUILD__).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })})
+              </span>
+            </button>
+            <button className="btn perigo" style={{ width: '100%' }}
+                    onClick={() => void supabase.auth.signOut()}>
+              Sair
+            </button>
+          </div>
+        </>
+      )}
       <Toasts />
       <CommandPalette aberta={paleta} onFechar={() => setPaleta(false)} />
     </div>
