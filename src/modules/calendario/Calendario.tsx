@@ -11,6 +11,7 @@ import {
 import { fmtData } from '../../domain/regras';
 import { Badge, Carregando } from '../../components/ui';
 import { MultiFiltro } from '../../components/MultiFiltro';
+import { CampoFiltro, PainelFiltros } from '../../components/PainelFiltros';
 
 type Vista = 'meu' | 'equipe' | 'obrigacoes';
 type Modo = 'grade' | 'semanas' | 'meses' | 'kanban';
@@ -272,22 +273,31 @@ export function Calendario() {
         {([['grade', 'Diário'], ['semanas', 'Semanal'], ['meses', 'Mensal'], ['kanban', 'Kanban']] as [Modo, string][]).map(([k, r]) => (
           <button key={k} className={`btn mini ${modo === k ? 'primario' : ''}`} onClick={() => setModo(k)}>{r}</button>
         ))}
-      </div>
-
-      <div className="linha" style={{ marginBottom: 12, flexWrap: 'wrap' }}>
-        <MultiFiltro rotulo="Responsáveis" selecionados={respFiltro} onChange={setRespFiltro}
-          opcoes={(pessoas ?? []).map((p) => ({ id: p.id, nome: p.nome }))} />
-        <MultiFiltro rotulo="Status" selecionados={statusFiltro} onChange={setStatusFiltro}
-          opcoes={(Object.entries(STATUS_DEMANDA) as [StatusDemanda, { rotulo: string }][])
-            .filter(([k]) => k !== 'rejeitada').map(([k, v]) => ({ id: k, nome: v.rotulo }))} />
-        <MultiFiltro rotulo="Processos" selecionados={processoFiltro} onChange={setProcessoFiltro}
-          opcoes={[...(processos ?? []).map((p) => ({ id: p.id, nome: p.nome })),
-                   { id: '__avulsa', nome: 'Avulsas (sem processo)' }]} />
-        <select value={recFiltro} onChange={(e) => setRecFiltro(e.target.value)} style={{ maxWidth: 160 }}>
-          <option value="">Recorrência: todas</option>
-          <option value="sim">Somente recorrentes</option>
-          <option value="nao">Somente não recorrentes</option>
-        </select>
+        <PainelFiltros
+          ativos={respFiltro.length + statusFiltro.length + processoFiltro.length + (recFiltro ? 1 : 0)}
+          onLimpar={() => { setRespFiltro([]); setStatusFiltro([]); setProcessoFiltro([]); setRecFiltro(''); }}>
+          <CampoFiltro rotulo="Responsáveis">
+            <MultiFiltro rotulo="Responsáveis" selecionados={respFiltro} onChange={setRespFiltro}
+              opcoes={(pessoas ?? []).map((p) => ({ id: p.id, nome: p.nome }))} />
+          </CampoFiltro>
+          <CampoFiltro rotulo="Status">
+            <MultiFiltro rotulo="Status" selecionados={statusFiltro} onChange={setStatusFiltro}
+              opcoes={(Object.entries(STATUS_DEMANDA) as [StatusDemanda, { rotulo: string }][])
+                .filter(([k]) => k !== 'rejeitada').map(([k, v]) => ({ id: k, nome: v.rotulo }))} />
+          </CampoFiltro>
+          <CampoFiltro rotulo="Processos">
+            <MultiFiltro rotulo="Processos" selecionados={processoFiltro} onChange={setProcessoFiltro}
+              opcoes={[...(processos ?? []).map((p) => ({ id: p.id, nome: p.nome })),
+                       { id: '__avulsa', nome: 'Avulsas (sem processo)' }]} />
+          </CampoFiltro>
+          <CampoFiltro rotulo="Recorrência">
+            <select value={recFiltro} onChange={(e) => setRecFiltro(e.target.value)}>
+              <option value="">Todas</option>
+              <option value="sim">Somente recorrentes</option>
+              <option value="nao">Somente não recorrentes</option>
+            </select>
+          </CampoFiltro>
+        </PainelFiltros>
       </div>
 
       <div className="linha" style={{ marginBottom: 14, flexWrap: 'wrap' }}>

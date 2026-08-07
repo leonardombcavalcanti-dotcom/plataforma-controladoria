@@ -7,6 +7,7 @@ import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import { gravarPref, lerPref } from '../../lib/prefs';
 import { BarraExcel } from './ProcessosExcel';
 import { ResumoProcessos } from './ResumoProcessos';
+import { CampoFiltro, PainelFiltros } from '../../components/PainelFiltros';
 
 // Biblioteca = catálogo (vista inicial do MVP — Etapa 4.75 P4).
 // O Mapa da Operação visual entra na F2, com dados reais acumulados.
@@ -70,23 +71,30 @@ export function Biblioteca() {
         })()}
       </div>
 
-      {/* Art. 42.5: tabela/lista sempre com filtro e busca */}
+      {/* Art. 42.5: busca sempre visível; filtros no painel (menos poluição) */}
       <div className="linha" style={{ marginBottom: 16 }}>
         <input
           type="text" placeholder="Buscar por nome ou objetivo…" style={{ maxWidth: 320 }}
           value={busca}
           onChange={(e) => { setBusca(e.target.value); gravarPref('biblioteca.busca', e.target.value); }}
         />
-        <select value={fStatus} style={{ maxWidth: 180 }}
-          onChange={(e) => { setFStatus(e.target.value); gravarPref('biblioteca.filtroStatus', e.target.value); }}>
-          <option value="">Todos os status</option>
-          {Object.entries(STATUS_PROCESSO).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}
-        </select>
-        <select value={fPer} style={{ maxWidth: 180 }}
-          onChange={(e) => { setFPer(e.target.value); gravarPref('biblioteca.filtroPeriodicidade', e.target.value); }}>
-          <option value="">Todas as periodicidades</option>
-          {Object.entries(PERIODICIDADE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
+        <PainelFiltros ativos={(fStatus ? 1 : 0) + (fPer ? 1 : 0)}
+          onLimpar={() => { setFStatus(''); setFPer(''); gravarPref('biblioteca.filtroStatus', ''); gravarPref('biblioteca.filtroPeriodicidade', ''); }}>
+          <CampoFiltro rotulo="Status do processo">
+            <select value={fStatus}
+              onChange={(e) => { setFStatus(e.target.value); gravarPref('biblioteca.filtroStatus', e.target.value); }}>
+              <option value="">Todos os status</option>
+              {Object.entries(STATUS_PROCESSO).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}
+            </select>
+          </CampoFiltro>
+          <CampoFiltro rotulo="Periodicidade">
+            <select value={fPer}
+              onChange={(e) => { setFPer(e.target.value); gravarPref('biblioteca.filtroPeriodicidade', e.target.value); }}>
+              <option value="">Todas as periodicidades</option>
+              {Object.entries(PERIODICIDADE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </CampoFiltro>
+        </PainelFiltros>
       </div>
 
       {isLoading ? (

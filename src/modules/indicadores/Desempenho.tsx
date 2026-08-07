@@ -14,6 +14,7 @@ import {
 import { fmtCompetencia, fmtData } from '../../domain/regras';
 import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import { MultiFiltro } from '../../components/MultiFiltro';
+import { CampoFiltro, PainelFiltros } from '../../components/PainelFiltros';
 import { useAnexos } from '../demandas/Anexos';
 
 type Periodo = '30' | '90' | '365' | 'este_mes' | 'mes_passado' | 'este_ano' | 'tudo' | 'custom';
@@ -285,8 +286,10 @@ export function Desempenho() {
 
   const limparTudo = () => {
     setAreaF([]); setPessoaF([]); setProcessoF([]); setTipoF([]); setMesSel(null);
-    setRecF(''); setSituacaoSel(null);
+    setRecF(''); setSituacaoSel(null); setPeriodo('90'); setDe(''); setAte('');
   };
+  const ativosFiltro = areaF.length + pessoaF.length + processoF.length + tipoF.length
+    + (recF ? 1 : 0) + (periodo !== '90' ? 1 : 0);
   const temFiltro = areaF.length + pessoaF.length + processoF.length + tipoF.length > 0 || mesSel || recF || situacaoSel;
 
   const Cab = (p: { col: string; children: ReactNode; w?: string }) => (
@@ -298,44 +301,57 @@ export function Desempenho() {
 
   return (
     <div>
-      {/* ===== Filtros ===== */}
+      {/* ===== Barra limpa: painel de filtros + recortes ativos + métrica ===== */}
       <div className="linha" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
-        <select value={periodo} onChange={(e) => setPeriodo(e.target.value as Periodo)} style={{ maxWidth: 160 }}>
-          <option value="30">Últimos 30 dias</option>
-          <option value="90">Últimos 90 dias</option>
-          <option value="365">Últimos 12 meses</option>
-          <option value="este_mes">Este mês</option>
-          <option value="mes_passado">Mês passado</option>
-          <option value="este_ano">Este ano</option>
-          <option value="tudo">Todo o histórico</option>
-          <option value="custom">Personalizado…</option>
-        </select>
-        {periodo === 'custom' && (
-          <>
-            <input type="date" value={de} onChange={(e) => setDe(e.target.value)} style={{ maxWidth: 155 }} />
-            <span className="mudo">até</span>
-            <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} style={{ maxWidth: 155 }} />
-          </>
-        )}
-        <MultiFiltro rotulo="Áreas" selecionados={areaF} onChange={setAreaF}
-          opcoes={(areas ?? []).map((a) => ({ id: a.id, nome: a.nome }))} />
-        {ehGestor ? (
-          <MultiFiltro rotulo="Pessoas" selecionados={pessoaF} onChange={setPessoaF}
-            opcoes={(pessoas ?? []).map((p) => ({ id: p.id, nome: p.nome }))} />
-        ) : (
-          <Badge tom="neutro">Meus números</Badge>
-        )}
-        <MultiFiltro rotulo="Processos" selecionados={processoF} onChange={setProcessoF}
-          opcoes={[...(processos ?? []).map((p) => ({ id: p.id, nome: p.nome })),
-                   { id: '__avulsa', nome: 'Avulsas (sem processo)' }]} />
-        <MultiFiltro rotulo="Tipos" selecionados={tipoF} onChange={setTipoF}
-          opcoes={(Object.entries(TIPO_DEMANDA) as [TipoDemanda, string][])
-            .map(([k, v]) => ({ id: k, nome: v }))} />
-        <select value={recF} onChange={(e) => setRecF(e.target.value)} style={{ maxWidth: 150 }}>
-          <option value="">Recorrência: todas</option>
-          <option value="sim">Recorrentes</option>
-          <option value="nao">Não recorrentes</option>
-        </select>
+        <PainelFiltros ativos={ativosFiltro} onLimpar={limparTudo}>
+          <CampoFiltro rotulo="Período">
+            <select value={periodo} onChange={(e) => setPeriodo(e.target.value as Periodo)}>
+              <option value="30">Últimos 30 dias</option>
+              <option value="90">Últimos 90 dias</option>
+              <option value="365">Últimos 12 meses</option>
+              <option value="este_mes">Este mês</option>
+              <option value="mes_passado">Mês passado</option>
+              <option value="este_ano">Este ano</option>
+              <option value="tudo">Todo o histórico</option>
+              <option value="custom">Personalizado…</option>
+            </select>
+            {periodo === 'custom' && (
+              <div className="linha" style={{ marginTop: 8 }}>
+                <input type="date" value={de} onChange={(e) => setDe(e.target.value)} />
+                <span className="mudo">até</span>
+                <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} />
+              </div>
+            )}
+          </CampoFiltro>
+          <CampoFiltro rotulo="Áreas">
+            <MultiFiltro rotulo="Áreas" selecionados={areaF} onChange={setAreaF}
+              opcoes={(areas ?? []).map((a) => ({ id: a.id, nome: a.nome }))} />
+          </CampoFiltro>
+          {ehGestor && (
+            <CampoFiltro rotulo="Pessoas">
+              <MultiFiltro rotulo="Pessoas" selecionados={pessoaF} onChange={setPessoaF}
+                opcoes={(pessoas ?? []).map((p) => ({ id: p.id, nome: p.nome }))} />
+            </CampoFiltro>
+          )}
+          <CampoFiltro rotulo="Processos">
+            <MultiFiltro rotulo="Processos" selecionados={processoF} onChange={setProcessoF}
+              opcoes={[...(processos ?? []).map((p) => ({ id: p.id, nome: p.nome })),
+                       { id: '__avulsa', nome: 'Avulsas (sem processo)' }]} />
+          </CampoFiltro>
+          <CampoFiltro rotulo="Tipos">
+            <MultiFiltro rotulo="Tipos" selecionados={tipoF} onChange={setTipoF}
+              opcoes={(Object.entries(TIPO_DEMANDA) as [TipoDemanda, string][])
+                .map(([k, v]) => ({ id: k, nome: v }))} />
+          </CampoFiltro>
+          <CampoFiltro rotulo="Recorrência">
+            <select value={recF} onChange={(e) => setRecF(e.target.value)}>
+              <option value="">Todas</option>
+              <option value="sim">Recorrentes</option>
+              <option value="nao">Não recorrentes</option>
+            </select>
+          </CampoFiltro>
+        </PainelFiltros>
+        {!ehGestor && <Badge tom="neutro">Meus números</Badge>}
         {mesSel && (
           <Badge tom="info">📅 {fmtCompetencia(mesSel)} ✕</Badge>
         )}
