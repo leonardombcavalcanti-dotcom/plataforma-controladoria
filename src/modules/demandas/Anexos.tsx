@@ -48,7 +48,12 @@ export function AnexosDemanda(props: { demandaId: string; podeEditar: boolean; o
     }
     setEnviando(true);
     try {
-      const caminho = `${demandaId}/${crypto.randomUUID()}-${arquivo.name}`;
+      // O Storage não aceita acentos/caracteres especiais na chave — o nome
+      // original fica no registro (exibição); o caminho técnico é sanitizado.
+      const nomeSeguro = arquivo.name
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._-]/g, '_');
+      const caminho = `${demandaId}/${crypto.randomUUID()}-${nomeSeguro}`;
       const { error: e1 } = await supabase.storage.from('anexos').upload(caminho, arquivo);
       if (e1) throw new Error(e1.message);
       const { error: e2 } = await supabase.from('demanda_anexos').insert({

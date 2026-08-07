@@ -246,3 +246,23 @@ input, textarea, select { background: var(--superficie); color: var(--texto); }
   background: var(--cor-critico); color: #fff; border-radius: 999px;
   font-size: 11px; font-weight: 700; padding: 1px 7px; margin-left: auto;
 }
+
+/* ---------- cronograma semanal + kanban (Sprint 19) ---------- */
+.sem-quadro { display: grid; gap: 10px; overflow-x: auto; align-items: start; padding-bottom: 6px; }
+.sem-coluna {
+  background: var(--fundo); border: 1px solid var(--borda);
+  border-radius: var(--raio); overflow: hidden; display: flex; flex-direction: column;
+}
+.sem-coluna.atual { border-color: var(--cor-primaria); box-shadow: 0 0 0 1px var(--cor-primaria); }
+.sem-cab {
+  background: var(--sidebar-fundo); color: var(--sidebar-texto-forte);
+  padding: 8px 12px; flex-shrink: 0;
+}
+.sem-corpo { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.k-card {
+  background: var(--superficie); border: 1px solid var(--borda);
+  border-left: 4px solid var(--cor-primaria); border-radius: 8px;
+  padding: 9px 11px; cursor: pointer; box-shadow: var(--sombra);
+  transition: border-color var(--t-hover), box-shadow var(--t-hover);
+}
+.k-card:hover { border-color: var(--cor-primaria); box-shadow: var(--sombra-alta); }

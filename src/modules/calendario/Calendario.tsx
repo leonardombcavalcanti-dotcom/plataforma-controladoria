@@ -1,15 +1,18 @@
-// Calendário — gerado dos prazos das demandas + PROJEÇÃO das recorrências.
-// Modos: Diário (grade) · Semanal · Mensal (consolidado) · filtros de responsável e status · legenda.
+// Calendário — Diário (grade com resumo do dia) · Semanal (colunas estilo cronograma)
+// · Mensal (consolidado) · Kanban (colunas por status). Filtros: vista, responsável,
+// status e processo. Projeções ↻ das recorrências incluídas.
 import { useMemo, useState } from 'react';
 import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { useDemandas } from '../../data/demandas.queries';
-import { usePessoaAtual, usePessoas } from '../../data/queries';
-import { type Demanda, type StatusDemanda, STATUS_DEMANDA, demandaAtrasada } from '../../domain/demandas';
+import { usePessoaAtual, usePessoas, useProcessos } from '../../data/queries';
+import {
+  type Demanda, type StatusDemanda, STATUS_DEMANDA, demandaAtrasada,
+} from '../../domain/demandas';
 import { fmtData } from '../../domain/regras';
 import { Badge, Carregando } from '../../components/ui';
 
 type Vista = 'meu' | 'equipe' | 'obrigacoes';
-type Modo = 'grade' | 'semanas' | 'meses';
+type Modo = 'grade' | 'semanas' | 'meses' | 'kanban';
 interface Item { d: Demanda; projetada: boolean }
 
 const VISTAS: { chave: Vista; rotulo: string }[] = [
@@ -19,10 +22,15 @@ const VISTAS: { chave: Vista; rotulo: string }[] = [
 ];
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MES_CURTO = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const DIAS_SEMANA = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
 
 const iso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const diaCurto = (isoD: string) => {
+  const [, m, dd] = isoD.split('-').map(Number);
+  return `${dd}/${MES_CURTO[m - 1]}`;
+};
 
 function proximaData(atual: string, rec: 'diaria' | 'semanal' | 'mensal' | 'anual'): string {
   const [y, m, dd] = atual.split('-').map(Number);
@@ -35,6 +43,16 @@ function proximaData(atual: string, rec: 'diaria' | 'semanal' | 'mensal' | 'anua
   return iso(b);
 }
 
+// Cor semântica da lateral do card (estilo cronograma)
+function corItem(it: Item): string {
+  if (it.projetada) return 'var(--cor-primaria-suave)';
+  const d = it.d;
+  if (['concluida'].includes(d.status)) return 'var(--cor-saudavel)';
+  if (d.status === 'encerrada') return 'var(--texto-mudo)';
+  if (demandaAtrasada(d) || d.status === 'bloqueada') return 'var(--cor-critico)';
+  if (d.status === 'em_execucao' || d.status === 'em_validacao') return 'var(--cor-atencao)';
+  return 'var(--cor-primaria)';
+}
 function classeItem(d: Demanda, projetada: boolean): string {
   if (projetada) return 'projetada';
   if (['concluida', 'encerrada'].includes(d.status)) return 'concluida';
@@ -43,12 +61,45 @@ function classeItem(d: Demanda, projetada: boolean): string {
   return '';
 }
 
+// Card no estilo do cronograma: borda colorida · título · responsável · data + status
+function CartaoCrono(props: { it: Item; onAbrir: () => void }) {
+  const { it } = props;
+  const d = it.d;
+  const atras = !it.projetada && demandaAtrasada(d);
+  return (
+    <div className="k-card" style={{ borderLeftColor: corItem(it) }}
+         onClick={(e) => { e.stopPropagation(); props.onAbrir(); }}
+         role="button" tabIndex={0}
+         onKeyDown={(e) => e.key === 'Enter' && props.onAbrir()}>
+      <strong style={{ display: 'block', fontSize: 13 }}>
+        {it.projetada ? '↻ ' : ''}{d.titulo}
+      </strong>
+      <div className="mudo" style={{ marginTop: 3 }}>
+        {d.responsavel?.nome ?? d.criador?.nome ?? '—'}
+        {d.processo?.nome ? ` · ${d.processo.nome}` : ''}
+      </div>
+      <div className="linha" style={{ marginTop: 6 }}>
+        <span className="mudo">{diaCurto(d.prazo)}</span>
+        <div className="espaco" />
+        {it.projetada ? (
+          <Badge tom="info">prevista</Badge>
+        ) : (
+          <Badge tom={atras ? 'critico' : STATUS_DEMANDA[d.status].tom}>
+            {atras ? 'Atrasada' : STATUS_DEMANDA[d.status].rotulo}
+          </Badge>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Calendario() {
   const nav = useNavigate();
   const { vista = 'meu' } = useParams<{ vista: Vista }>();
   const { data: demandas, isLoading } = useDemandas();
   const { data: eu } = usePessoaAtual();
   const { data: pessoas } = usePessoas();
+  const { data: processos } = useProcessos();
 
   const agora = new Date();
   const [ano, setAno] = useState(agora.getFullYear());
@@ -56,11 +107,14 @@ export function Calendario() {
   const [modo, setModo] = useState<Modo>('grade');
   const [respFiltro, setRespFiltro] = useState('');
   const [statusFiltro, setStatusFiltro] = useState('');
+  const [processoFiltro, setProcessoFiltro] = useState('');
+  const [diaAberto, setDiaAberto] = useState<string | null>(null);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
+  const hojeIso = iso(agora);
+
   const alternar = (chave: string) => setExpandidos((s) => {
     const n = new Set(s); if (n.has(chave)) n.delete(chave); else n.add(chave); return n;
   });
-  const hojeIso = iso(agora);
 
   const filtradas = useMemo(() => {
     return (demandas ?? []).filter((d) => {
@@ -70,11 +124,12 @@ export function Calendario() {
       if (vista === 'obrigacoes' && d.processo_id === null) return false;
       if (respFiltro && d.responsavel_id !== respFiltro) return false;
       if (statusFiltro && d.status !== statusFiltro) return false;
+      if (processoFiltro && (processoFiltro === '__avulsa'
+        ? d.processo_id !== null : d.processo_id !== processoFiltro)) return false;
       return true;
     });
-  }, [demandas, vista, eu, respFiltro, statusFiltro]);
+  }, [demandas, vista, eu, respFiltro, statusFiltro, processoFiltro]);
 
-  // Recorrência PROJETADA no horizonte visível (mês corrente ou ano inteiro)
   const itens = useMemo<Map<string, Item[]>>(() => {
     const fim = modo === 'meses' ? `${ano}-12-31` : iso(new Date(ano, mes + 1, 0));
     const mapa = new Map<string, Item[]>();
@@ -143,35 +198,50 @@ export function Calendario() {
     });
   }, [ano, itens]);
 
+  // Kanban: colunas por status (somente demandas reais, sem projeções)
+  const COLUNAS_KANBAN: { status: StatusDemanda; rotulo: string }[] = [
+    { status: 'aberta', rotulo: 'A fazer' },
+    { status: 'em_execucao', rotulo: 'Em andamento' },
+    { status: 'bloqueada', rotulo: 'Bloqueadas' },
+    { status: 'em_validacao', rotulo: 'Em validação' },
+    { status: 'concluida', rotulo: 'Concluídas' },
+  ];
+  const kanban = useMemo(() => {
+    return COLUNAS_KANBAN.map((c) => ({
+      ...c,
+      lista: filtradas
+        .filter((d) => d.status === c.status)
+        .sort((a, b) => (a.prazo < b.prazo ? -1 : 1)),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtradas]);
+
   if (isLoading || !eu) return <Carregando linhas={5} />;
 
-  const ItemCal = (p: { it: Item }) => (
-    <div className={`cal-item ${classeItem(p.it.d, p.it.projetada)}`}
-         title={`${p.it.d.titulo} — ${p.it.d.responsavel?.nome ?? p.it.d.criador?.nome ?? ''}${p.it.projetada ? ' (recorrência prevista)' : ''}`}
-         onClick={() => nav(`/demandas/inbox/${p.it.d.id}`)}>
-      {p.it.projetada ? '↻ ' : ''}{p.it.d.titulo}
-    </div>
-  );
+  const abrirDemanda = (d: Demanda) => nav(`/demandas/inbox/${d.id}`);
+  const itensDoDia = diaAberto ? (itens.get(diaAberto) ?? []) : [];
 
   return (
     <>
       <div className="linha" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
         <h1>Calendário</h1>
         <div className="espaco" />
-        {modo !== 'meses' ? (
-          <>
-            <button className="btn mini" onClick={() => { const d = new Date(ano, mes - 1, 1); setAno(d.getFullYear()); setMes(d.getMonth()); }}>‹</button>
-            <strong style={{ minWidth: 150, textAlign: 'center' }}>{MESES[mes]} {ano}</strong>
-            <button className="btn mini" onClick={() => { const d = new Date(ano, mes + 1, 1); setAno(d.getFullYear()); setMes(d.getMonth()); }}>›</button>
-          </>
-        ) : (
+        {modo === 'meses' ? (
           <>
             <button className="btn mini" onClick={() => setAno(ano - 1)}>‹</button>
             <strong style={{ minWidth: 80, textAlign: 'center' }}>{ano}</strong>
             <button className="btn mini" onClick={() => setAno(ano + 1)}>›</button>
           </>
+        ) : modo !== 'kanban' && (
+          <>
+            <button className="btn mini" onClick={() => { const d = new Date(ano, mes - 1, 1); setAno(d.getFullYear()); setMes(d.getMonth()); }}>‹</button>
+            <strong style={{ minWidth: 150, textAlign: 'center' }}>{MESES[mes]} {ano}</strong>
+            <button className="btn mini" onClick={() => { const d = new Date(ano, mes + 1, 1); setAno(d.getFullYear()); setMes(d.getMonth()); }}>›</button>
+          </>
         )}
-        <button className="btn mini" onClick={() => { setAno(agora.getFullYear()); setMes(agora.getMonth()); }}>Hoje</button>
+        {modo !== 'kanban' && (
+          <button className="btn mini" onClick={() => { setAno(agora.getFullYear()); setMes(agora.getMonth()); }}>Hoje</button>
+        )}
       </div>
 
       <div className="linha" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
@@ -184,31 +254,41 @@ export function Calendario() {
           ))}
         </nav>
         <div className="espaco" />
-        {([['grade', 'Diário'], ['semanas', 'Semanal'], ['meses', 'Mensal']] as [Modo, string][]).map(([k, r]) => (
+        {([['grade', 'Diário'], ['semanas', 'Semanal'], ['meses', 'Mensal'], ['kanban', 'Kanban']] as [Modo, string][]).map(([k, r]) => (
           <button key={k} className={`btn mini ${modo === k ? 'primario' : ''}`} onClick={() => setModo(k)}>{r}</button>
         ))}
-        <select value={respFiltro} onChange={(e) => setRespFiltro(e.target.value)} style={{ maxWidth: 190 }}>
+      </div>
+
+      <div className="linha" style={{ marginBottom: 12, flexWrap: 'wrap' }}>
+        <select value={respFiltro} onChange={(e) => setRespFiltro(e.target.value)} style={{ maxWidth: 185 }}>
           <option value="">Todos os responsáveis</option>
           {(pessoas ?? []).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
         </select>
-        <select value={statusFiltro} onChange={(e) => setStatusFiltro(e.target.value)} style={{ maxWidth: 170 }}>
+        <select value={statusFiltro} onChange={(e) => setStatusFiltro(e.target.value)} style={{ maxWidth: 165 }}>
           <option value="">Todos os status</option>
           {(Object.entries(STATUS_DEMANDA) as [StatusDemanda, { rotulo: string }][])
             .filter(([k]) => k !== 'rejeitada')
             .map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}
         </select>
+        <select value={processoFiltro} onChange={(e) => setProcessoFiltro(e.target.value)} style={{ maxWidth: 200 }}>
+          <option value="">Todos os processos</option>
+          {(processos ?? []).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+          <option value="__avulsa">Avulsas (sem processo)</option>
+        </select>
       </div>
 
-      {/* Legenda de cores */}
-      <div className="linha" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
-        <span className="mudo">Legenda:</span>
-        <span className="cal-item" style={{ marginTop: 0 }}>Em andamento</span>
-        <span className="cal-item atrasada" style={{ marginTop: 0 }}>Atrasada</span>
-        <span className="cal-item concluida" style={{ marginTop: 0 }}>Concluída</span>
-        <span className="cal-item solicitada" style={{ marginTop: 0 }}>Solicitação</span>
-        <span className="cal-item projetada" style={{ marginTop: 0 }}>↻ Recorrência prevista</span>
-      </div>
+      {modo !== 'kanban' && (
+        <div className="linha" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
+          <span className="mudo">Legenda:</span>
+          <span className="cal-item" style={{ marginTop: 0 }}>Em andamento</span>
+          <span className="cal-item atrasada" style={{ marginTop: 0 }}>Atrasada</span>
+          <span className="cal-item concluida" style={{ marginTop: 0 }}>Concluída</span>
+          <span className="cal-item solicitada" style={{ marginTop: 0 }}>Solicitação</span>
+          <span className="cal-item projetada" style={{ marginTop: 0 }}>↻ Recorrência prevista</span>
+        </div>
+      )}
 
+      {/* ===== DIÁRIO: clique no dia abre o resumo ===== */}
       {modo === 'grade' && (
         <>
           <div className="cal-grade" style={{ marginBottom: 6 }}>
@@ -220,9 +300,21 @@ export function Calendario() {
             {grade.map((c) => {
               const doDia = itens.get(c.iso) ?? [];
               return (
-                <div key={c.iso} className={`cal-dia ${c.doMes ? '' : 'fora'} ${c.iso === hojeIso ? 'hoje' : ''}`}>
+                <div key={c.iso}
+                     className={`cal-dia ${c.doMes ? '' : 'fora'} ${c.iso === hojeIso ? 'hoje' : ''}`}
+                     style={{ cursor: doDia.length > 0 ? 'pointer' : 'default' }}
+                     onClick={() => doDia.length > 0 && setDiaAberto(c.iso)}
+                     role="button" tabIndex={0}
+                     title={doDia.length > 0 ? 'Ver resumo do dia' : undefined}>
                   <div className="mudo" style={{ fontWeight: c.iso === hojeIso ? 700 : 400 }}>{c.dia}</div>
-                  {doDia.slice(0, 3).map((it, i) => <ItemCal key={it.d.id + String(i)} it={it} />)}
+                  {doDia.slice(0, 3).map((it, i) => (
+                    <div key={it.d.id + String(i)}
+                         className={`cal-item ${classeItem(it.d, it.projetada)}`}
+                         title={it.d.titulo}
+                         onClick={(e) => { e.stopPropagation(); abrirDemanda(it.d); }}>
+                      {it.projetada ? '↻ ' : ''}{it.d.titulo}
+                    </div>
+                  ))}
                   {doDia.length > 3 && <div className="mudo" style={{ fontSize: 11, marginTop: 2 }}>+{doDia.length - 3}</div>}
                 </div>
               );
@@ -231,45 +323,31 @@ export function Calendario() {
         </>
       )}
 
+      {/* ===== SEMANAL: colunas estilo cronograma ===== */}
       {modo === 'semanas' && (
-        <div className="grade">
+        <div className="sem-quadro" style={{ gridTemplateColumns: `repeat(${semanas.length}, minmax(230px, 1fr))` }}>
           {semanas.map((s) => {
-            const chave = `sem-${s.rotulo}`;
             const contemHoje = hojeIso >= s.de && hojeIso <= s.ate;
-            // Padrão: a semana de hoje abre; o clique inverte o estado padrão.
-            const mostrar = expandidos.has(chave) ? !contemHoje : contemHoje;
             return (
-            <div key={s.rotulo} className="cartao">
-              <div className="linha" style={{ cursor: 'pointer' }} onClick={() => alternar(chave)}
-                   role="button" tabIndex={0} aria-expanded={mostrar}>
-                <strong>{s.rotulo}</strong>
-                <span className="mudo">{fmtData(s.de)} – {fmtData(s.ate)}</span>
-                <div className="espaco" />
-                <Badge tom={s.lista.length === 0 ? 'neutro' : 'info'}>{s.lista.length}</Badge>
-                <span className="mudo">{mostrar ? '▴' : '▾'}</span>
-              </div>
-              {mostrar && s.lista.length > 0 && (
-                <ul className="lista-limpa scroll-box" style={{ marginTop: 8 }}>
-                  {s.lista.map((it, i) => (
-                    <li key={it.d.id + String(i)} className="linha"
-                        style={{ padding: '5px 0', borderBottom: '1px solid var(--borda)', cursor: 'pointer' }}
-                        onClick={() => nav(`/demandas/inbox/${it.d.id}`)}>
-                      <span>{it.projetada ? '↻ ' : ''}{it.d.titulo}</span>
-                      {!it.projetada && (
-                        <Badge tom={STATUS_DEMANDA[it.d.status].tom}>{STATUS_DEMANDA[it.d.status].rotulo}</Badge>
-                      )}
-                      {it.projetada && <span className="mudo">recorrência prevista</span>}
-                      <div className="espaco" />
-                      <span className="mudo">{it.d.responsavel?.nome ?? ''}</span>
-                    </li>
+              <div key={s.rotulo} className={`sem-coluna ${contemHoje ? 'atual' : ''}`}>
+                <div className="sem-cab">
+                  <strong>{s.rotulo}</strong>
+                  <div style={{ fontSize: 11.5, opacity: 0.85 }}>{diaCurto(s.de)} – {diaCurto(s.ate)}</div>
+                </div>
+                <div className="sem-corpo scroll-box" style={{ maxHeight: 520 }}>
+                  {s.lista.length === 0 ? (
+                    <p className="mudo" style={{ padding: 8 }}>—</p>
+                  ) : s.lista.map((it, i) => (
+                    <CartaoCrono key={it.d.id + String(i)} it={it} onAbrir={() => abrirDemanda(it.d)} />
                   ))}
-                </ul>
-              )}
-            </div>
-          ); })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
+      {/* ===== MENSAL: consolidado expansível ===== */}
       {modo === 'meses' && (
         <div className="grade">
           {meses.map((m) => {
@@ -308,7 +386,7 @@ export function Calendario() {
                       {doMes.map(({ dia, it }, i) => (
                         <li key={it.d.id + dia + String(i)} className="linha"
                             style={{ padding: '5px 0', borderBottom: '1px solid var(--borda)', cursor: 'pointer' }}
-                            onClick={() => nav(`/demandas/inbox/${it.d.id}`)}>
+                            onClick={() => abrirDemanda(it.d)}>
                           <span className="mudo" style={{ minWidth: 78 }}>{fmtData(dia)}</span>
                           <span>{it.projetada ? '↻ ' : ''}{it.d.titulo}</span>
                           {!it.projetada && (
@@ -325,6 +403,56 @@ export function Calendario() {
             );
           })}
         </div>
+      )}
+
+      {/* ===== KANBAN: colunas por status ===== */}
+      {modo === 'kanban' && (
+        <div className="sem-quadro" style={{ gridTemplateColumns: `repeat(${kanban.length}, minmax(240px, 1fr))` }}>
+          {kanban.map((col) => (
+            <div key={col.status} className="sem-coluna">
+              <div className="sem-cab linha">
+                <strong>{col.rotulo}</strong>
+                <div className="espaco" />
+                <span style={{ opacity: 0.85 }}>{col.lista.length}</span>
+              </div>
+              <div className="sem-corpo scroll-box" style={{ maxHeight: 560 }}>
+                {col.lista.length === 0 ? (
+                  <p className="mudo" style={{ padding: 8 }}>—</p>
+                ) : col.lista.map((d) => (
+                  <CartaoCrono key={d.id} it={{ d, projetada: false }} onAbrir={() => abrirDemanda(d)} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ===== RESUMO DO DIA (drawer local) ===== */}
+      {diaAberto && (
+        <>
+          <div className="drawer-fundo" onClick={() => setDiaAberto(null)} />
+          <aside className="drawer" style={{ width: 'min(520px, 92vw)' }} aria-label="Resumo do dia">
+            <header className="drawer-cabecalho" style={{ paddingBottom: 14 }}>
+              <div className="linha">
+                <h1>{fmtData(diaAberto)}</h1>
+                <Badge tom="info">{itensDoDia.length} item(ns)</Badge>
+                <div className="espaco" />
+                <button className="btn mini" onClick={() => setDiaAberto(null)}>✕ Fechar</button>
+              </div>
+              <p className="mudo" style={{ marginTop: 4 }}>
+                {new Date(diaAberto + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long' })}
+              </p>
+            </header>
+            <div className="drawer-corpo">
+              <div className="grade">
+                {itensDoDia.map((it, i) => (
+                  <CartaoCrono key={it.d.id + String(i)} it={it}
+                    onAbrir={() => { setDiaAberto(null); abrirDemanda(it.d); }} />
+                ))}
+              </div>
+            </div>
+          </aside>
+        </>
       )}
     </>
   );
