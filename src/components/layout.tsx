@@ -17,6 +17,23 @@ export function AppShell(props: { children: ReactNode }) {
   const [tema, setTema] = useState(() => lerPref('tema', 'claro'));
   const [fechada, setFechada] = useState(() => lerPref('sidebar', 'aberta') === 'fechada');
   const [zoom, setZoom] = useState(() => lerPref('zoom', '100'));
+  const [atualizando, setAtualizando] = useState(false);
+
+  // Puxa a última versão publicada: limpa caches, atualiza o SW e recarrega.
+  async function atualizarApp() {
+    setAtualizando(true);
+    try {
+      if ('caches' in window) {
+        const nomes = await caches.keys();
+        await Promise.all(nomes.map((n) => caches.delete(n)));
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.update()));
+      }
+    } catch { /* segue para o reload mesmo assim */ }
+    window.location.reload();
+  }
 
   useEffect(() => {
     if (tema === 'claro') delete document.documentElement.dataset.tema;
@@ -114,7 +131,7 @@ export function AppShell(props: { children: ReactNode }) {
         {!fechada && (
           <div className="rodape">
             Menu congelado completo — 8 módulos no ar.<br />
-            Fase 2 em andamento.
+            Versão de {new Date(__BUILD__).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
           </div>
         )}
       </aside>
@@ -160,6 +177,11 @@ export function AppShell(props: { children: ReactNode }) {
             <option value="escuro">◼ Escuro</option>
             <option value="dourado">◆ Dourado & Preto</option>
           </select>
+          <button className="btn mini" onClick={() => void atualizarApp()} disabled={atualizando}
+                  title={`Atualizar para a última versão publicada (build de ${new Date(__BUILD__).toLocaleString('pt-BR')})`}
+                  aria-label="Atualizar app">
+            {atualizando ? '…' : '⟳'}
+          </button>
           <div className="usuario">
             {pessoa ? (
               <>
