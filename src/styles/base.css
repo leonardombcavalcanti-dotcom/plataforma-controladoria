@@ -339,3 +339,53 @@ button.cal-item { font-family: inherit; cursor: pointer; }
 @media (max-width: 768px) {
   .dash-tab-scroll { overflow-x: auto; }
 }
+
+/* ---------- mobile profissional / iOS safe areas (Sprint 21b · ios-pro) ---------- */
+@media (max-width: 768px) {
+  /* Fundo escuro atrás de tudo: some a faixa branca do gesto inferior e do overscroll */
+  html, body { background: var(--sidebar-fundo); }
+  body { overscroll-behavior-y: none; }
+  .app-shell { min-height: 100dvh; }
+  .principal { background: var(--fundo); }
+
+  /* Topbar escura estilo app, empurrada para baixo do relógio/wifi (notch) */
+  .topbar {
+    background: var(--sidebar-fundo);
+    border-bottom: none;
+    box-shadow: none;
+    height: auto;
+    min-height: 50px;
+    padding: calc(8px + env(safe-area-inset-top)) 10px 8px;
+    position: sticky; top: 0; z-index: 30;
+  }
+  .topbar .busca-global {
+    background: rgba(255, 255, 255, 0.10);
+    border-color: transparent;
+    color: var(--sidebar-texto-forte);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+  .topbar .btn.mini:not(.primario) {
+    background: rgba(255, 255, 255, 0.10);
+    border-color: transparent;
+    color: var(--sidebar-texto-forte);
+  }
+  .usuario { color: var(--sidebar-texto); }
+
+  /* Barra inferior acima da área do gesto, sem vazar branco */
+  .nav-mobile {
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Drawers em tela cheia respeitando o notch */
+  .drawer-cabecalho { padding-top: calc(14px + env(safe-area-inset-top)); }
+  .drawer-corpo { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+
+  /* Busca (Ctrl+K) abaixo do relógio e alvos de toque maiores */
+  .paleta-fundo { padding-top: calc(8vh + env(safe-area-inset-top)); }
+  .paleta input { font-size: 16px; }           /* evita o zoom automático do iOS */
+  input, select, textarea, .btn { min-height: 40px; }
+  .btn.mini { min-height: 34px; }
+  .aba { padding: 10px 12px; }
+}
