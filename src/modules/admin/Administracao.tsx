@@ -9,8 +9,9 @@ import {
 import { fmtDataHora } from '../../domain/regras';
 import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import type { PerfilAcesso, Pessoa } from '../../domain/tipos';
+import { Ausencias } from './Ausencias';
 
-type Vista = 'estrutura' | 'pessoas' | 'auditoria';
+type Vista = 'estrutura' | 'pessoas' | 'ferias' | 'auditoria';
 
 const PERFIS: Record<PerfilAcesso, string> = {
   colaborador: 'Colaborador', gestor: 'Gestor', executivo: 'Executivo', admin: 'Admin',
@@ -35,7 +36,7 @@ export function Administracao() {
         <h1>Administração</h1>
       </div>
       <nav className="abas" style={{ marginBottom: 16, marginTop: 0 }} aria-label="Vistas">
-        {([['estrutura', 'Estrutura'], ['pessoas', 'Pessoas & Acessos'], ['auditoria', 'Auditoria']] as [Vista, string][]).map(([k, r]) => (
+        {([['estrutura', 'Estrutura'], ['pessoas', 'Pessoas & Acessos'], ['ferias', '🏖 Férias'], ['auditoria', 'Auditoria']] as [Vista, string][]).map(([k, r]) => (
           <NavLink key={k} to={`/admin/${k}`}
             className={({ isActive }) => `aba ${isActive ? 'ativa' : ''}`}>{r}</NavLink>
         ))}
@@ -43,6 +44,7 @@ export function Administracao() {
 
       {vista === 'estrutura' && <VistaEstrutura />}
       {vista === 'pessoas' && <VistaPessoas />}
+      {vista === 'ferias' && <Ausencias />}
       {vista === 'auditoria' && <VistaAuditoria />}
     </>
   );

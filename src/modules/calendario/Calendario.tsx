@@ -12,9 +12,10 @@ import { fmtData } from '../../domain/regras';
 import { Badge, Carregando } from '../../components/ui';
 import { MultiFiltro } from '../../components/MultiFiltro';
 import { CampoFiltro, PainelFiltros } from '../../components/PainelFiltros';
+import { Gantt } from './Gantt';
 
 type Vista = 'meu' | 'equipe' | 'obrigacoes';
-type Modo = 'grade' | 'semanas' | 'meses' | 'kanban';
+type Modo = 'grade' | 'semanas' | 'meses' | 'kanban' | 'gantt';
 interface Item { d: Demanda; projetada: boolean }
 
 const VISTAS: { chave: Vista; rotulo: string }[] = [
@@ -242,20 +243,20 @@ export function Calendario() {
       <div className="linha" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
         <h1>Calendário</h1>
         <div className="espaco" />
-        {modo === 'meses' ? (
+        {['kanban', 'gantt'].includes(modo) ? null : modo === 'meses' ? (
           <>
             <button className="btn mini" onClick={() => setAno(ano - 1)}>‹</button>
             <strong style={{ minWidth: 80, textAlign: 'center' }}>{ano}</strong>
             <button className="btn mini" onClick={() => setAno(ano + 1)}>›</button>
           </>
-        ) : modo !== 'kanban' && (
+        ) : (
           <>
             <button className="btn mini" onClick={() => { const d = new Date(ano, mes - 1, 1); setAno(d.getFullYear()); setMes(d.getMonth()); }}>‹</button>
             <strong style={{ minWidth: 150, textAlign: 'center' }}>{MESES[mes]} {ano}</strong>
             <button className="btn mini" onClick={() => { const d = new Date(ano, mes + 1, 1); setAno(d.getFullYear()); setMes(d.getMonth()); }}>›</button>
           </>
         )}
-        {modo !== 'kanban' && (
+        {!['kanban', 'gantt'].includes(modo) && (
           <button className="btn mini" onClick={() => { setAno(agora.getFullYear()); setMes(agora.getMonth()); }}>Hoje</button>
         )}
       </div>
@@ -270,7 +271,7 @@ export function Calendario() {
           ))}
         </nav>
         <div className="espaco" />
-        {([['grade', 'Diário'], ['semanas', 'Semanal'], ['meses', 'Mensal'], ['kanban', 'Kanban']] as [Modo, string][]).map(([k, r]) => (
+        {([['grade', 'Diário'], ['semanas', 'Semanal'], ['meses', 'Mensal'], ['kanban', 'Kanban'], ['gantt', 'Gantt']] as [Modo, string][]).map(([k, r]) => (
           <button key={k} className={`btn mini ${modo === k ? 'primario' : ''}`} onClick={() => setModo(k)}>{r}</button>
         ))}
         <PainelFiltros
@@ -300,6 +301,7 @@ export function Calendario() {
         </PainelFiltros>
       </div>
 
+      {!['kanban', 'gantt'].includes(modo) && (
       <div className="linha" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
         <span className="mudo">Legenda (clique para filtrar):</span>
         {([['andamento', 'Em andamento', ''], ['atrasada', 'Atrasada', 'atrasada'],
@@ -315,6 +317,7 @@ export function Calendario() {
           <button className="btn mini" onClick={() => setSituacoes(new Set())}>Limpar</button>
         )}
       </div>
+      )}
 
       {/* ===== DIÁRIO: clique no dia abre o resumo ===== */}
       {modo === 'grade' && (
@@ -432,6 +435,8 @@ export function Calendario() {
           })}
         </div>
       )}
+
+      {modo === 'gantt' && <Gantt demandas={filtradas} processos={processos ?? []} />}
 
       {/* ===== KANBAN: colunas por status ===== */}
       {modo === 'kanban' && (

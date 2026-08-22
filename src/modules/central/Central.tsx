@@ -53,6 +53,15 @@ export function Central() {
     };
   }, [demandas, eu, fimHorizonte, souGestor]);
 
+  // Atrasadas da equipe (gestor+): quem está atrasado e em quê
+  const atrasadasEquipe = useMemo(() => {
+    if (!eu || !(souGestor || souExecutivo)) return [];
+    return (demandas ?? [])
+      .filter((d) => !['concluida', 'encerrada', 'rejeitada', 'solicitada'].includes(d.status)
+        && demandaAtrasada(d) && d.responsavel_id !== eu.id)
+      .sort((a, b) => (a.prazo < b.prazo ? -1 : 1));
+  }, [demandas, eu, souGestor, souExecutivo]);
+
   const equipe = useMemo(() => {
     const lista = demandas ?? [];
     const ativas = lista.filter((d) =>
@@ -172,6 +181,36 @@ export function Central() {
                 })}
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* Atrasadas da equipe — cards, só para gestor/executivo */}
+      {(souGestor || souExecutivo) && atrasadasEquipe.length > 0 && (
+        <div className="secao">
+          <h3 style={{ marginBottom: 8 }}>
+            Atrasadas da equipe <Badge tom="critico">{atrasadasEquipe.length}</Badge>
+          </h3>
+          <div className="grade" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))' }}>
+            {atrasadasEquipe.slice(0, 9).map((d) => (
+              <div key={d.id} className="cartao clicavel" style={{ borderLeft: '3px solid var(--cor-critico)' }}
+                   onClick={() => nav(`/demandas/equipe/${d.id}`)} role="button" tabIndex={0}>
+                <strong style={{ display: 'block', marginBottom: 6 }}>{d.titulo}</strong>
+                <div className="linha" style={{ flexWrap: 'wrap' }}>
+                  <Badge tom="critico">{fmtData(d.prazo)}</Badge>
+                  <Badge tom={STATUS_DEMANDA[d.status].tom}>{STATUS_DEMANDA[d.status].rotulo}</Badge>
+                  {d.recorrencia && <Badge tom="info">↻</Badge>}
+                </div>
+                <p className="mudo" style={{ marginTop: 6 }}>
+                  {d.responsavel?.nome ?? '—'} · {d.processo?.nome ?? 'Avulsa'}
+                </p>
+              </div>
+            ))}
+          </div>
+          {atrasadasEquipe.length > 9 && (
+            <button className="btn mini" style={{ marginTop: 8 }} onClick={() => nav('/demandas/equipe')}>
+              Ver todas as {atrasadasEquipe.length}
+            </button>
           )}
         </div>
       )}

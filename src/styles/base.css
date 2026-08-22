@@ -402,3 +402,35 @@ button.cal-item { font-family: inherit; cursor: pointer; }
 }
 @keyframes subir { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (min-width: 769px) { .sheet-mobile { display: none; } }
+
+/* ---------- Gantt de processos (Sprint 22) ---------- */
+.gantt-rolagem { overflow-x: auto; }
+.gantt-linha { display: flex; align-items: stretch; border-bottom: 1px solid var(--borda); }
+.gantt-rotulo {
+  width: 270px; flex-shrink: 0; padding: 7px 12px; display: flex; align-items: center;
+  gap: 4px; font-size: 12.5px; border-right: 1px solid var(--borda);
+}
+.gantt-trilha { position: relative; flex: 1; min-height: 30px; }
+.gantt-cab { background: var(--sidebar-fundo); color: var(--sidebar-texto-forte); }
+.gantt-cab .gantt-rotulo { color: var(--sidebar-texto-forte); border-color: rgba(255,255,255,.12); }
+.gantt-col-cab {
+  position: absolute; top: 0; bottom: 0; display: flex; align-items: center;
+  justify-content: center; font-size: 10.5px; border-left: 1px solid rgba(255,255,255,.12);
+}
+.gantt-grupo { background: var(--cor-info-suave); cursor: pointer; }
+.gantt-grupo.avulsa { background: var(--cor-atencao-suave); }
+.gantt-grupo:hover { filter: brightness(0.98); }
+.gantt-item { cursor: pointer; }
+.gantt-item:hover { background: var(--cor-info-suave); }
+.gantt-barra {
+  position: absolute; top: 6px; height: 17px; border-radius: 4px; min-width: 6px;
+  display: flex; align-items: center; padding: 0 5px; overflow: hidden;
+}
+.gantt-barra-texto { font-size: 9.5px; color: #fff; white-space: nowrap; opacity: .9; }
+.gantt-barra-grupo {
+  position: absolute; top: 11px; height: 8px; border-radius: 4px;
+  background: var(--texto-suave); opacity: .5;
+}
+.gantt-hoje { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--cor-critico); opacity: .55; }
+.gantt-corta { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 768px) { .gantt-rotulo { width: 150px; } .gantt-corta { max-width: 90px; } }
