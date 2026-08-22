@@ -16,7 +16,7 @@ import { Gantt } from './Gantt';
 
 type Vista = 'meu' | 'equipe' | 'obrigacoes';
 type Modo = 'grade' | 'semanas' | 'meses' | 'kanban' | 'gantt';
-interface Item { d: Demanda; projetada: boolean }
+interface Item { d: Demanda; projetada: boolean; data: string }
 
 const VISTAS: { chave: Vista; rotulo: string }[] = [
   { chave: 'meu', rotulo: 'Meu' },
@@ -69,6 +69,7 @@ function CartaoCrono(props: { it: Item; onAbrir: () => void }) {
   const { it } = props;
   const d = it.d;
   const atras = !it.projetada && demandaAtrasada(d);
+  const dataItem = it.data ?? d.prazo;   // projeção mostra o próprio vencimento
   return (
     <div className="k-card" style={{ borderLeftColor: corItem(it) }}
          onClick={(e) => { e.stopPropagation(); props.onAbrir(); }}
@@ -82,7 +83,7 @@ function CartaoCrono(props: { it: Item; onAbrir: () => void }) {
         {d.processo?.nome ? ` · ${d.processo.nome}` : ''}
       </div>
       <div className="linha" style={{ marginTop: 6 }}>
-        <span className="mudo">{diaCurto(d.prazo)}</span>
+        <span className="mudo">{diaCurto(dataItem)}</span>
         <div className="espaco" />
         {it.projetada ? (
           <Badge tom="info">prevista</Badge>
@@ -150,14 +151,14 @@ export function Calendario() {
     const mapa = new Map<string, Item[]>();
     const põe = (dia: string, it: Item) => mapa.set(dia, [...(mapa.get(dia) ?? []), it]);
     for (const d of filtradas) {
-      põe(d.prazo, { d, projetada: false });
+      põe(d.prazo, { d, projetada: false, data: d.prazo });
       if (d.recorrencia && !['concluida', 'encerrada'].includes(d.status)
           && (situacoes.size === 0 || situacoes.has('projetada'))) {
         let cur = d.prazo; let guarda = 0;
         while (guarda++ < 500) {
           cur = proximaData(cur, d.recorrencia);
           if (cur > fim) break;
-          põe(cur, { d, projetada: true });
+          põe(cur, { d, projetada: true, data: cur });
         }
       }
     }
@@ -191,7 +192,7 @@ export function Calendario() {
       for (const [dia, its] of itens) {
         if (dia >= deIso && dia <= ateIso) lista.push(...its);
       }
-      lista.sort((a, b) => (a.d.prazo < b.d.prazo ? -1 : 1));
+      lista.sort((a, b) => (a.data < b.data ? -1 : 1));
       grupos.push({ rotulo: `Semana ${n}`, de: deIso, ate: ateIso, lista });
       inicio = fim + 1; n++;
     }
@@ -452,7 +453,7 @@ export function Calendario() {
                 {col.lista.length === 0 ? (
                   <p className="mudo" style={{ padding: 8 }}>—</p>
                 ) : col.lista.map((d) => (
-                  <CartaoCrono key={d.id} it={{ d, projetada: false }} onAbrir={() => abrirDemanda(d)} />
+                  <CartaoCrono key={d.id} it={{ d, projetada: false, data: d.prazo }} onAbrir={() => abrirDemanda(d)} />
                 ))}
               </div>
             </div>
