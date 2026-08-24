@@ -9,7 +9,7 @@ import * as api from '../../data/demandas.api';
 import {
   type CausaBloqueio, type MotivoEncerramento,
   STATUS_DEMANDA, PRIORIDADE, TIPO_DEMANDA, VALOR, MOTIVO_CONCLUSAO,
-  MOTIVO_ENCERRAMENTO, CAUSA_BLOQUEIO, RECORRENCIA_DEMANDA, descreverEvento, prazoTom,
+  MOTIVO_ENCERRAMENTO, CAUSA_BLOQUEIO, RECORRENCIA_DEMANDA, descreverEvento, ehSubstituicao, prazoTom,
 } from '../../domain/demandas';
 import { fmtData, fmtDataHora } from '../../domain/regras';
 import { Badge, Carregando } from '../../components/ui';
@@ -121,6 +121,7 @@ export function FichaDemanda() {
             {d.avaliacao_nota !== null && <Badge tom="saudavel">{'★'.repeat(d.avaliacao_nota)}</Badge>}
             {d.status === 'concluida' && d.avaliacao_nota === null && <Badge tom="atencao">Aguarda avaliação</Badge>}
             {d.anexo_obrigatorio && !finalizada && <Badge tom="atencao">📎 anexo obrigatório</Badge>}
+            {ehSubstituicao(d) && <Badge tom="atencao">🔄 Substituição</Badge>}
             {d.recorrencia && <Badge tom="info">↻ {RECORRENCIA_DEMANDA[d.recorrencia]}</Badge>}
           </div>
 
@@ -131,7 +132,7 @@ export function FichaDemanda() {
                 {' '}· Prazo desejado: {fmtData(d.prazo)}{d.peso !== null ? ` · Peso sugerido: ${d.peso}` : ''}</span>
             ) : (
               <>
-                <span className="suave">Responsável: <strong>{d.responsavel?.nome ?? '—'}</strong></span>
+                <span className="suave">Responsável: <strong>{d.responsavel?.nome ?? '—'}</strong>{ehSubstituicao(d) ? ` (substituindo ${nomeDe(d.substituindo_id)})` : ''}</span>
                 <span className="suave">· Prazo: <Badge tom={prazoTom(d)}>{fmtData(d.prazo)}</Badge></span>
                 <span className="suave">· {TIPO_DEMANDA[d.tipo]} · Prioridade {PRIORIDADE[d.prioridade].rotulo} · Valor {VALOR[d.valor]}{d.peso !== null ? ` · Peso ${d.peso}` : ''}</span>
                 {d.exige_validacao && <span className="suave">· Validador: {nomeDe(d.validador_id ?? d.criador_id)}</span>}

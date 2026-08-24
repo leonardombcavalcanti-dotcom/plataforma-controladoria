@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useDemandas } from '../../data/demandas.queries';
 import { usePessoaAtual } from '../../data/queries';
 import {
-  type Demanda, STATUS_DEMANDA, PRIORIDADE, demandaAtrasada, prazoTom,
+  type Demanda, STATUS_DEMANDA, PRIORIDADE, demandaAtrasada, ehSubstituicao, prazoTom,
 } from '../../domain/demandas';
 import { fmtData } from '../../domain/regras';
 import { Badge, Carregando, EstadoVazio } from '../../components/ui';
@@ -144,6 +144,7 @@ function CartaoDemanda(props: { d: Demanda; onAbrir: () => void }) {
         {d.prioridade !== 'media' && <Badge tom={pr.tom}>{pr.rotulo}</Badge>}
         {d.avaliacao_nota !== null && <Badge tom="saudavel">{'★'.repeat(d.avaliacao_nota)}</Badge>}
         {d.status === 'concluida' && d.avaliacao_nota === null && <Badge tom="atencao">aguarda avaliação</Badge>}
+        {ehSubstituicao(d) && <Badge tom="atencao">🔄 substituição</Badge>}
         <div className="espaco" />
         <Badge tom={tomPrazo}>
           {tomPrazo === 'critico' ? 'Atrasada · ' : ''}{fmtData(d.prazo)}

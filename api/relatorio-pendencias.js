@@ -32,6 +32,13 @@ export default async function handler(req, res) {
     return res.status(401).json({ erro: 'não autorizado' });
   }
   try {
+    // Sincroniza férias/ausências do dia (aplica quem entrou, devolve quem voltou)
+    await fetch(`${URL_BASE}/rest/v1/rpc/sincronizar_ausencias_global`, {
+      method: 'POST',
+      headers: { apikey: CHAVE, Authorization: `Bearer ${CHAVE}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    }).catch(() => { /* não bloqueia o relatório */ });
+
     const hoje = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10); // America/Fortaleza
     const pessoas = await sb('pessoas?select=id,nome,email&ativa=is.true');
     const atrasadas = await sb(

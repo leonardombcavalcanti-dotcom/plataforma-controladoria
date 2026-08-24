@@ -9,7 +9,7 @@ import { useDemandas } from '../../data/demandas.queries';
 import { useAreas, usePessoaAtual, usePessoas, useProcessos } from '../../data/queries';
 import {
   type Demanda, MOTIVO_CONCLUSAO, PRIORIDADE, RECORRENCIA_DEMANDA,
-  STATUS_DEMANDA, TIPO_DEMANDA, type TipoDemanda, VALOR, demandaAtrasada,
+  STATUS_DEMANDA, TIPO_DEMANDA, type TipoDemanda, VALOR, demandaAtrasada, ehSubstituicao,
 } from '../../domain/demandas';
 import { fmtCompetencia, fmtData } from '../../domain/regras';
 import { Badge, Carregando, EstadoVazio } from '../../components/ui';
@@ -433,7 +433,7 @@ export function Desempenho() {
                 <span style={{ width: '9%' }} className="suave">{fmtData(d.prazo)}</span>
                 <span style={{ width: '9%' }} className="suave">{d.concluida_em ? fmtData(d.concluida_em) : '—'}</span>
                 <span style={{ width: '10%' }}><Badge tom={s.tom}>{s.rotulo}</Badge></span>
-                <span style={{ width: '12%' }} className="dash-corta suave">{d.responsavel?.nome ?? '—'}</span>
+                <span style={{ width: '12%' }} className="dash-corta suave">{ehSubstituicao(d) ? '🔄 ' : ''}{d.responsavel?.nome ?? '—'}</span>
                 <span style={{ width: '7%' }} className="suave">
                   {d.recorrencia ? `↻ ${RECORRENCIA_DEMANDA[d.recorrencia].split(' ')[0]}` : '—'}
                 </span>
@@ -492,7 +492,7 @@ function ResumoDemanda(props: { d: Demanda; onFechar: () => void; onAbrirComplet
         </header>
         <div className="drawer-corpo">
           <div className="grade" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 14 }}>
-            <Info r="Responsável" v={d.responsavel?.nome ?? '—'} />
+            <Info r="Responsável" v={`${d.responsavel?.nome ?? '—'}${ehSubstituicao(d) ? ' (substituição)' : ''}`} />
             <Info r="Criador" v={d.criador?.nome ?? '—'} />
             <Info r="Prazo" v={fmtData(d.prazo)} />
             <Info r="Entrega" v={d.concluida_em ? fmtData(d.concluida_em) : '—'} />

@@ -6,7 +6,7 @@ import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { useDemandas } from '../../data/demandas.queries';
 import { usePessoaAtual, usePessoas, useProcessos } from '../../data/queries';
 import {
-  type Demanda, type StatusDemanda, STATUS_DEMANDA, demandaAtrasada,
+  type Demanda, type StatusDemanda, STATUS_DEMANDA, demandaAtrasada, ehSubstituicao,
 } from '../../domain/demandas';
 import { fmtData } from '../../domain/regras';
 import { Badge, Carregando } from '../../components/ui';
@@ -79,7 +79,7 @@ function CartaoCrono(props: { it: Item; onAbrir: () => void }) {
         {it.projetada ? '↻ ' : ''}{d.titulo}
       </strong>
       <div className="mudo" style={{ marginTop: 3 }}>
-        {d.responsavel?.nome ?? d.criador?.nome ?? '—'}
+        {ehSubstituicao(d) ? '🔄 ' : ''}{d.responsavel?.nome ?? d.criador?.nome ?? '—'}
         {d.processo?.nome ? ` · ${d.processo.nome}` : ''}
       </div>
       <div className="linha" style={{ marginTop: 6 }}>

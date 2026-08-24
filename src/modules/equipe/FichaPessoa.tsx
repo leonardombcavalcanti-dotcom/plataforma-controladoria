@@ -7,7 +7,7 @@ import {
   type Feedback, type TipoFeedback, TIPO_FEEDBACK,
   useFeedbacks, useFeedbackMutations,
 } from '../../data/equipe.api';
-import { STATUS_DEMANDA, demandaAtrasada } from '../../domain/demandas';
+import { STATUS_DEMANDA, demandaAtrasada, ehSubstituicao } from '../../domain/demandas';
 import { fmtData, fmtDataHora } from '../../domain/regras';
 import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import type { Pessoa } from '../../domain/tipos';
@@ -90,6 +90,7 @@ export function FichaPessoa() {
                       onClick={() => nav(`/demandas/equipe/${d.id}`)}>
                     <span>{d.titulo}</span>
                     <Badge tom={STATUS_DEMANDA[d.status].tom}>{STATUS_DEMANDA[d.status].rotulo}</Badge>
+                    {ehSubstituicao(d) && <Badge tom="atencao">🔄</Badge>}
                     <div className="espaco" />
                     <span className="mudo">{fmtData(d.prazo)}</span>
                   </li>

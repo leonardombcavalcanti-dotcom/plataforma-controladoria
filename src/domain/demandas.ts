@@ -52,6 +52,7 @@ export interface Demanda {
   avaliacao_comentario: string | null;
   avaliada_por: string | null;
   avaliada_em: string | null;
+  substituindo_id: string | null;
   criado_em: string;
   responsavel?: Pick<Pessoa, 'id' | 'nome'> | null;
   criador?: Pick<Pessoa, 'id' | 'nome'> | null;
@@ -122,6 +123,11 @@ export const RECORRENCIA_DEMANDA: Record<'diaria' | 'semanal' | 'mensal' | 'anua
   diaria: 'Diária (seg–sex)', semanal: 'Semanal', mensal: 'Mensal', anual: 'Anual',
 };
 
+// Demanda que está com um substituto (titular ausente)
+export function ehSubstituicao(d: Demanda): boolean {
+  return d.substituindo_id !== null;
+}
+
 export function demandaAtrasada(d: Demanda): boolean {
   if (['concluida', 'encerrada', 'rejeitada', 'solicitada'].includes(d.status)) return false;
   return new Date(d.prazo + 'T23:59:59') < new Date();
@@ -155,6 +161,8 @@ export function descreverEvento(tipo: string, dados: Record<string, unknown> | n
     case 'solicitacao_rejeitada': return `Solicitação rejeitada — "${String(d['motivo'])}"`;
     case 'avaliacao': return `Avaliada pelo gestor: ${'★'.repeat(Number(d['nota'] ?? 0))}${d['comentario'] ? ` — \"${String(d['comentario'])}\"` : ''}`;
     case 'recorrencia_gerada': return `Recorrência: próxima demanda criada para ${String(d['prazo'])}`;
+    case 'substituicao_inicio': return `Assumida por substituição — de ${nomes(d['de'])} para ${nomes(d['para'])} (${String(d['motivo'] ?? 'ausência')}, até ${String(d['ate'] ?? '')})`;
+    case 'substituicao_fim': return `Devolvida ao titular: ${nomes(d['devolvida_para'])}`;
     case 'edicao': return 'Campos editados';
     default: return tipo;
   }

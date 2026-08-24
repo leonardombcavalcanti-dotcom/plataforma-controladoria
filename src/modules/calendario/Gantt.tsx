@@ -2,7 +2,7 @@
 // para Avulsas, escala Diária/Semanal/Mensal e legenda de situação.
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { type Demanda, demandaAtrasada } from '../../domain/demandas';
+import { type Demanda, demandaAtrasada, ehSubstituicao } from '../../domain/demandas';
 import { fmtData } from '../../domain/regras';
 import { Badge, EstadoVazio } from '../../components/ui';
 import type { Processo } from '../../domain/tipos';
@@ -198,7 +198,7 @@ export function Gantt(props: { demandas: Demanda[]; processos: Processo[] }) {
                         <div className="gantt-rotulo">
                           <span className="gantt-corta">{d.titulo}</span>
                           <span className="mudo" style={{ marginLeft: 6, fontSize: 11 }}>
-                            {d.responsavel?.nome?.split(' ')[0] ?? ''}
+                            {ehSubstituicao(d) ? '🔄 ' : ''}{d.responsavel?.nome?.split(' ')[0] ?? ''}
                           </span>
                         </div>
                         <div className="gantt-trilha">

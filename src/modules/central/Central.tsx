@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDemandas } from '../../data/demandas.queries';
 import { usePessoaAtual } from '../../data/queries';
 import { useBloqueiosAtivos, useOcorrenciasAbertas } from '../../data/central.api';
-import { type Demanda, CAUSA_BLOQUEIO, PRIORIDADE, RECORRENCIA_DEMANDA, STATUS_DEMANDA, demandaAtrasada, prazoTom } from '../../domain/demandas';
+import { type Demanda, CAUSA_BLOQUEIO, PRIORIDADE, RECORRENCIA_DEMANDA, STATUS_DEMANDA, demandaAtrasada, ehSubstituicao, prazoTom } from '../../domain/demandas';
 import { fmtCompetencia, fmtData } from '../../domain/regras';
 import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import { StatusProcessos } from './StatusProcessos';
@@ -285,6 +285,7 @@ function Bloco(props: {
               )}
               {d.recorrencia && <Badge tom="info">↻ {RECORRENCIA_DEMANDA[d.recorrencia]}</Badge>}
               {props.legenda && <Badge tom="atencao">{props.legenda(d)}</Badge>}
+              {ehSubstituicao(d) && <Badge tom="atencao">🔄 substituição</Badge>}
             </div>
             <p className="mudo" style={{ marginTop: 8 }}>
               {d.processo?.nome ?? 'Avulsa'}
