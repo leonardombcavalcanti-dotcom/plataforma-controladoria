@@ -17,7 +17,7 @@ const TIPOS: Record<TipoAusencia, string> = {
 
 interface Ausencia {
   id: string; pessoa_id: string; substituto_id: string | null; tipo: TipoAusencia;
-  inicio: string; fim: string; observacao: string | null; ativa: boolean;
+  inicio: string; fim: string; observacao: string | null; ativa: boolean; aplicada: boolean;
   pessoa?: { nome: string } | null; substituto?: { nome: string } | null;
 }
 
@@ -35,6 +35,8 @@ export function Ausencias() {
   const { data: ausencias, isLoading } = useQuery({
     queryKey: ['ausencias'],
     queryFn: async () => {
+      // Aplica as que começaram hoje e devolve as que terminaram (idempotente)
+      await supabase.rpc('sincronizar_ausencias');
       const { data, error } = await supabase.from('ausencias')
         .select('*, pessoa:pessoas!ausencias_pessoa_id_fkey(nome), substituto:pessoas!ausencias_substituto_id_fkey(nome)')
         .order('inicio', { ascending: false });
@@ -58,7 +60,10 @@ export function Ausencias() {
     },
     onSuccess: () => {
       invalidar();
-      toast('Ausência registrada — demandas ativas transferidas ao substituto', 'ok');
+      const hojeIso = new Date().toISOString().slice(0, 10);
+      toast(inicio <= hojeIso
+        ? 'Ausência registrada — demandas transferidas ao substituto'
+        : `Ausência agendada — a transferência acontece em ${inicio.split('-').reverse().join('/')}`, 'ok');
       setPessoaId(''); setSubstitutoId(''); setInicio(''); setFim(''); setObs('');
     },
     onError: (e) => toast(e instanceof Error ? e.message : 'Não foi possível registrar.', 'erro'),
@@ -81,8 +86,9 @@ export function Ausencias() {
       <div className="cartao secao">
         <h3 style={{ marginBottom: 10 }}>Registrar ausência</h3>
         <p className="suave" style={{ marginBottom: 12 }}>
-          As demandas ativas do titular passam ao substituto durante o período. Toda ação do substituto
-          fica registrada como tal, e ao encerrar as demandas voltam automaticamente.
+          A transferência acontece <strong>no primeiro dia da ausência</strong> — até lá, nada muda.
+          No retorno, as demandas voltam automaticamente ao titular. Toda ação do substituto fica
+          registrada como tal.
         </p>
         <div className="grade" style={{ gridTemplateColumns: '1fr 1fr' }}>
           <label className="campo"><span>Quem se ausenta *</span>
@@ -134,8 +140,8 @@ export function Ausencias() {
                   <div className="linha" style={{ flexWrap: 'wrap' }}>
                     <strong>{a.pessoa?.nome ?? '—'}</strong>
                     <Badge tom="neutro">{TIPOS[a.tipo]}</Badge>
-                    {emCurso && <Badge tom="atencao">Em curso</Badge>}
-                    {futura && <Badge tom="info">Agendada</Badge>}
+                    {emCurso && <Badge tom="atencao">{a.aplicada ? 'Em curso · substituindo' : 'Em curso'}</Badge>}
+                    {futura && <Badge tom="info">Agendada · transfere em {fmtData(a.inicio)}</Badge>}
                     {!a.ativa && <Badge tom="saudavel">Encerrada</Badge>}
                     <div className="espaco" />
                     <span className="mudo">{fmtData(a.inicio)} – {fmtData(a.fim)}</span>
@@ -149,7 +155,7 @@ export function Ausencias() {
                       <div className="espaco" />
                       <button className="btn mini" disabled={encerrar.isPending}
                               onClick={() => encerrar.mutate(a.id)}>
-                        Encerrar e devolver demandas
+                        {a.aplicada ? 'Encerrar e devolver demandas' : 'Cancelar ausência'}
                       </button>
                     </div>
                   )}
