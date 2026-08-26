@@ -11,6 +11,7 @@ import {
 import { fmtData } from '../../domain/regras';
 import { Badge, Carregando } from '../../components/ui';
 import { MultiFiltro } from '../../components/MultiFiltro';
+import { responsavelNaData, useAusenciasAtivas } from '../../data/ausencias.api';
 import { CampoFiltro, PainelFiltros } from '../../components/PainelFiltros';
 import { Gantt } from './Gantt';
 
@@ -104,6 +105,7 @@ export function Calendario() {
   const { data: eu } = usePessoaAtual();
   const { data: pessoas } = usePessoas();
   const { data: processos } = useProcessos();
+  const { data: ausencias } = useAusenciasAtivas();
 
   const agora = new Date();
   const [ano, setAno] = useState(agora.getFullYear());
@@ -132,8 +134,10 @@ export function Calendario() {
   const filtradas = useMemo(() => {
     return (demandas ?? []).filter((d) => {
       if (d.status === 'rejeitada') return false;
-      if (vista === 'meu' && d.responsavel_id !== eu?.id &&
-          !(d.status === 'solicitada' && d.criador_id === eu?.id)) return false;
+      if (vista === 'meu'
+          && d.responsavel_id !== eu?.id
+          && d.substituindo_id !== eu?.id            // sou o titular, hoje coberto
+          && !(d.status === 'solicitada' && d.criador_id === eu?.id)) return false;
       if (vista === 'obrigacoes' && d.processo_id === null) return false;
       if (respFiltro.length > 0 && !respFiltro.includes(d.responsavel_id ?? '')) return false;
       if (statusFiltro.length > 0 && !statusFiltro.includes(d.status)) return false;
@@ -150,21 +154,28 @@ export function Calendario() {
     const fim = modo === 'meses' ? `${ano}-12-31` : iso(new Date(ano, mes + 1, 0));
     const mapa = new Map<string, Item[]>();
     const põe = (dia: string, it: Item) => mapa.set(dia, [...(mapa.get(dia) ?? []), it]);
+    const listaAus = ausencias ?? [];
+    const meuId = eu?.id ?? '';
+    // Na vista "Meu", cada ocorrência entra apenas se EU respondo por ela naquela data
+    const meuNaData = (d: Demanda, data: string) =>
+      vista !== 'meu' || responsavelNaData(d, data, listaAus) === meuId
+      || (d.status === 'solicitada' && d.criador_id === meuId);
+
     for (const d of filtradas) {
-      põe(d.prazo, { d, projetada: false, data: d.prazo });
+      if (meuNaData(d, d.prazo)) põe(d.prazo, { d, projetada: false, data: d.prazo });
       if (d.recorrencia && !['concluida', 'encerrada'].includes(d.status)
           && (situacoes.size === 0 || situacoes.has('projetada'))) {
         let cur = d.prazo; let guarda = 0;
         while (guarda++ < 500) {
           cur = proximaData(cur, d.recorrencia);
           if (cur > fim) break;
-          põe(cur, { d, projetada: true, data: cur });
+          if (meuNaData(d, cur)) põe(cur, { d, projetada: true, data: cur });
         }
       }
     }
     return mapa;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtradas, modo, ano, mes, situacoes]);
+  }, [filtradas, modo, ano, mes, situacoes, ausencias, eu, vista]);
 
   const grade = useMemo(() => {
     const primeiro = new Date(ano, mes, 1);
