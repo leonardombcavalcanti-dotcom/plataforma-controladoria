@@ -123,9 +123,13 @@ export const RECORRENCIA_DEMANDA: Record<'diaria' | 'semanal' | 'mensal' | 'anua
   diaria: 'Diária (seg–sex)', semanal: 'Semanal', mensal: 'Mensal', anual: 'Anual',
 };
 
-// Demanda que está com um substituto (titular ausente)
+// Demanda que está com um substituto (titular ausente).
+// Só vale para demandas ATIVAS: concluída/encerrada é entrega, não substituição.
 export function ehSubstituicao(d: Demanda): boolean {
-  return d.substituindo_id !== null;
+  return !!d.substituindo_id
+    && !!d.responsavel_id
+    && d.substituindo_id !== d.responsavel_id
+    && !['concluida', 'encerrada', 'rejeitada'].includes(d.status);
 }
 
 export function demandaAtrasada(d: Demanda): boolean {

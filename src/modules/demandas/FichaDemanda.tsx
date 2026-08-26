@@ -132,7 +132,7 @@ export function FichaDemanda() {
                 {' '}· Prazo desejado: {fmtData(d.prazo)}{d.peso !== null ? ` · Peso sugerido: ${d.peso}` : ''}</span>
             ) : (
               <>
-                <span className="suave">Responsável: <strong>{d.responsavel?.nome ?? '—'}</strong>{ehSubstituicao(d) ? ` (substituindo ${nomeDe(d.substituindo_id)})` : ''}</span>
+                <span className="suave">Responsável: <strong>{d.responsavel?.nome ?? '—'}</strong>{ehSubstituicao(d) && nomeDe(d.substituindo_id) !== '—' ? ` (substituindo ${nomeDe(d.substituindo_id)})` : ''}</span>
                 <span className="suave">· Prazo: <Badge tom={prazoTom(d)}>{fmtData(d.prazo)}</Badge></span>
                 <span className="suave">· {TIPO_DEMANDA[d.tipo]} · Prioridade {PRIORIDADE[d.prioridade].rotulo} · Valor {VALOR[d.valor]}{d.peso !== null ? ` · Peso ${d.peso}` : ''}</span>
                 {d.exige_validacao && <span className="suave">· Validador: {nomeDe(d.validador_id ?? d.criador_id)}</span>}
