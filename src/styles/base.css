@@ -488,3 +488,19 @@ button.cal-item { font-family: inherit; cursor: pointer; }
 .tab-calculo th { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--texto-mudo); }
 .tab-calculo tfoot td { border-bottom: none; border-top: 2px solid var(--borda); padding-top: 10px; }
 .tab-calculo td.mono, .tab-calculo .mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.comp-calculo {
+  margin-top: 10px; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid var(--borda); background: var(--fundo-1);
+}
+.comp-calculo .bloco-calculo { background: var(--fundo-2); font-size: 12.5px; }
+.termos-calculo { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.termos-calculo li {
+  display: flex; gap: 10px; align-items: baseline;
+  font-size: 12.5px; line-height: 1.5; color: var(--texto-mudo);
+}
+.termos-calculo .termo-valor {
+  min-width: 66px; text-align: right; font-weight: 700; color: var(--texto);
+  font-variant-numeric: tabular-nums;
+}
+.termos-calculo strong { color: var(--texto); font-weight: 600; }

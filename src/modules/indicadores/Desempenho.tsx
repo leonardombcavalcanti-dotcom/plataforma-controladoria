@@ -907,28 +907,45 @@ function ExplicaNota(props: {
         )}
 
         <h3 className="secao">2 · Os quatro componentes deste recorte</h3>
-        <table className="tab-calculo">
-          <thead>
-            <tr><th>Componente</th><th>Conta feita</th><th>Resultado</th><th>Peso</th><th>Contribuição</th></tr>
-          </thead>
-          <tbody>
-            {n.componentes.map((c) => (
-              <tr key={c.nome}>
-                <td>{c.nome}<br /><span className="mudo">{c.detalhe}</span></td>
-                <td className="mono">{c.formula}</td>
-                <td className="mono">{num(c.valorExato)}</td>
-                <td className="mono">{c.peso}%</td>
-                <td className="mono"><strong>{num((c.valorExato * c.peso) / 100)}</strong></td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={4}>Soma das contribuições — nota de {props.alvo}</td>
-              <td className="mono"><strong>{num(soma)} → {n.nota}</strong></td>
-            </tr>
-          </tfoot>
-        </table>
+        <p className="mudo" style={{ marginTop: 4 }}>
+          Todos usam <strong>peso efetivo</strong> como moeda — nunca contagem de demandas.
+          Abaixo, de onde vem cada número.
+        </p>
+        {n.componentes.map((comp) => (
+          <div key={comp.nome} className="comp-calculo">
+            <div className="linha" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <strong>{comp.nome}</strong>
+              <div className="espaco" />
+              <span className="mono mudo">peso {comp.peso}%</span>
+              <span className="mono"><strong>{num(comp.valorExato)}</strong> pts</span>
+            </div>
+            <p className="mudo" style={{ margin: '4px 0 8px' }}>{comp.oQueMede}</p>
+            <ul className="termos-calculo">
+              {comp.termos.map((t) => (
+                <li key={t.rotulo}>
+                  <span className="mono termo-valor">{t.valor}</span>
+                  <span><strong>{t.rotulo}</strong> — {t.origem}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="bloco-calculo mono" style={{ marginTop: 8 }}>
+              {comp.formula}
+              <br />
+              <span className="mudo">
+                contribuição na nota: {num(comp.valorExato)} × {comp.peso}% ={' '}
+                <strong>{num((comp.valorExato * comp.peso) / 100)}</strong> ponto(s)
+              </span>
+            </div>
+          </div>
+        ))}
+
+        <div className="bloco-calculo" style={{ marginTop: 12 }}>
+          <strong>Nota de {props.alvo}</strong> = soma das quatro contribuições
+          <br />
+          <span className="mono">
+            {n.componentes.map((x) => num((x.valorExato * x.peso) / 100)).join(' + ')} = {num(soma)} → <strong>{n.nota}</strong>
+          </span>
+        </div>
 
         <h3 className="secao">3 · Base do cálculo</h3>
         <p className="mudo" style={{ marginTop: 4 }}>
