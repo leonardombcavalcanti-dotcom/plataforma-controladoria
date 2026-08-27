@@ -16,11 +16,12 @@ import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import { MultiFiltro } from '../../components/MultiFiltro';
 import { CampoFiltro, PainelFiltros } from '../../components/PainelFiltros';
 import { useAnexos } from '../demandas/Anexos';
+import { calcularNota, faixaNota, pesoEfetivo, diasAtraso } from '../../domain/desempenho';
 
 type Periodo = '30' | '90' | '365' | 'este_mes' | 'mes_passado' | 'este_ano' | 'tudo' | 'custom';
-type Metrica = 'qtd' | 'lead' | 'sla' | 'aval';
+type Metrica = 'qtd' | 'peso' | 'lead' | 'sla' | 'nota';
 const METRICAS: Record<Metrica, string> = {
-  qtd: 'Quantidade', lead: 'Lead time (h)', sla: 'SLA %', aval: 'Avaliação',
+  qtd: 'Quantidade', peso: 'Peso médio', lead: 'Lead time (h)', sla: 'SLA %', nota: 'Nota',
 };
 
 const estrelas = (n: number | null) => (n === null ? '—' : `★ ${n.toFixed(1)}`);
@@ -44,10 +45,14 @@ function metricaDe(lista: Demanda[], m: Metrica): { valor: number | null; displa
       d.motivo_conclusao === 'no_prazo' || d.motivo_conclusao === 'antecipada').length / concl.length) * 100);
     return { valor: v, display: `${v}%` };
   }
-  const avals = concl.filter((d) => d.avaliacao_nota !== null);
-  if (!avals.length) return { valor: null, display: '—' };
-  const v = Math.round((avals.reduce((s, d) => s + (d.avaliacao_nota ?? 0), 0) / avals.length) * 10) / 10;
-  return { valor: v, display: `★${v.toFixed(1)}` };
+  if (m === 'peso') {
+    if (!concl.length) return { valor: null, display: '—' };
+    const v = Math.round((concl.reduce((s, d) => s + pesoEfetivo(d), 0) / concl.length) * 10) / 10;
+    return { valor: v, display: v.toFixed(1) };
+  }
+  // nota
+  const n = calcularNota(concl);
+  return { valor: n.nota, display: n.nota === null ? '—' : String(n.nota) };
 }
 
 function useContagemAnexos(ids: string[]) {
@@ -204,7 +209,11 @@ export function Desempenho() {
     const leadH = hs.length ? Math.round(hs.reduce((a, b) => a + b, 0) / hs.length) : null;
     const avals = concluidas.filter((d) => d.avaliacao_nota !== null);
     const ativas = recorte.filter((d) => !['concluida', 'encerrada'].includes(d.status));
+    const pesos = concluidas.map(pesoEfetivo);
+    const pesoTotal = pesos.reduce((a, b) => a + b, 0);
     return {
+      pesoMedio: concluidas.length ? Math.round((pesoTotal / concluidas.length) * 10) / 10 : null,
+      pesoTotal: Math.round(pesoTotal),
       concluidas: concluidas.length,
       sla: concluidas.length ? Math.round((noPrazo / concluidas.length) * 100) : null,
       leadD: leadH !== null ? Math.round((leadH / 24) * 10) / 10 : null,
@@ -216,6 +225,16 @@ export function Desempenho() {
       atrasadas: ativas.filter(demandaAtrasada).length,
     };
   }, [concluidas, recorte]);
+
+  // Referência de entrega: maior peso entregue por uma pessoa no recorte
+  const referenciaEntrega = useMemo(() => {
+    const porPessoa = new Map<string, number>();
+    for (const d of concluidas) {
+      const k = d.responsavel_id ?? '';
+      porPessoa.set(k, (porPessoa.get(k) ?? 0) + pesoEfetivo(d));
+    }
+    return Math.max(1, ...porPessoa.values());
+  }, [concluidas]);
 
   const porMes = useMemo(() => {
     const linhas: { id: string; rotulo: string; valor: number | null; display: string }[] = [];
@@ -375,14 +394,20 @@ export function Desempenho() {
         <Kpi rotulo="Lead (dias)" valor={kpis.leadD === null ? '—' : `${kpis.leadD}`} />
         <Kpi rotulo="Lead (horas)" valor={kpis.leadH === null ? '—' : `${kpis.leadH}h`} />
         <Kpi rotulo="Retrabalho" valor={String(kpis.retrabalho)} tom={kpis.retrabalho > 0 ? 'critico' : undefined} />
-        <Kpi rotulo="Avaliação" valor={estrelas(kpis.nota)} />
-        <Kpi rotulo="Sem avaliação" valor={String(kpis.pendAval)} tom={kpis.pendAval > 0 ? 'atencao' : undefined} />
+        <Kpi rotulo="Peso médio" valor={kpis.pesoMedio === null ? '—' : String(kpis.pesoMedio)} />
+        <Kpi rotulo="Peso entregue" valor={String(kpis.pesoTotal)} />
         <Kpi rotulo="Ativas" valor={String(kpis.ativas)} />
         <Kpi rotulo="Atrasadas" valor={String(kpis.atrasadas)} tom={kpis.atrasadas > 0 ? 'critico' : undefined} />
       </div>
       <PizzaStatus dados={pizza} ativo={situacaoSel}
         onClique={(s) => setSituacaoSel(situacaoSel === s ? null : s)} />
       </div>
+
+      {/* ===== Nota de Desempenho ===== */}
+      <PainelNota concluidas={concluidas} referencia={referenciaEntrega}
+        alvo={pessoaF.length === 1
+          ? (pessoas ?? []).find((p) => p.id === pessoaF[0])?.nome ?? 'a pessoa'
+          : ehGestor ? 'a equipe' : 'você'} />
 
       {/* ===== Gráficos com cross-filter ===== */}
       <div className="dash-graficos secao">
@@ -592,6 +617,70 @@ function PizzaStatus(props: {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Nota de Desempenho — ranking de criticidade (peso × prioridade × valor × complexidade)
+function PainelNota(props: {
+  concluidas: Demanda[];
+  referencia: number;
+  alvo: string;
+}) {
+  const n = calcularNota(props.concluidas, props.referencia);
+  const [aberto, setAberto] = useState(false);
+  if (n.nota === null) {
+    return (
+      <div className="cartao secao">
+        <h3 style={{ margin: 0 }}>Nota de Desempenho</h3>
+        <p className="mudo" style={{ marginTop: 6 }}>Sem entregas concluídas no recorte.</p>
+      </div>
+    );
+  }
+  const f = faixaNota(n.nota);
+  const cor = f.tom === 'saudavel' ? 'var(--cor-saudavel)'
+    : f.tom === 'info' ? 'var(--cor-primaria)'
+    : f.tom === 'atencao' ? 'var(--cor-atencao)' : 'var(--cor-critico)';
+
+  return (
+    <div className="cartao secao" style={{ borderLeft: `3px solid ${cor}` }}>
+      <div className="linha" style={{ cursor: 'pointer', flexWrap: 'wrap' }}
+           onClick={() => setAberto(!aberto)} role="button" tabIndex={0} aria-expanded={aberto}>
+        <h3 style={{ margin: 0 }}>Nota de Desempenho — {props.alvo}</h3>
+        <strong style={{ fontSize: 26, color: cor }}>{n.nota}</strong>
+        <span className="mudo">/100</span>
+        <Badge tom={f.tom}>{f.rotulo}</Badge>
+        {n.amostraPequena && <Badge tom="atencao">amostra pequena ({n.concluidas})</Badge>}
+        <span className="mudo">· peso médio {n.pesoMedio} · {n.pesoTotal} pontos entregues</span>
+        <div className="espaco" />
+        <span className="mudo">{aberto ? 'ocultar ▴' : 'ver composição ▾'}</span>
+      </div>
+
+      {aberto && (
+        <>
+          <ul className="lista-limpa" style={{ marginTop: 12 }}>
+            {n.componentes.map((c) => (
+              <li key={c.nome} className="linha"
+                  style={{ padding: '7px 0', borderBottom: '1px solid var(--borda)' }}>
+                <span style={{ minWidth: 190 }}>{c.nome}</span>
+                <div className="barra-h" style={{ flex: 1 }}>
+                  <div style={{ width: `${c.valor}%`,
+                    background: c.valor >= 85 ? 'var(--cor-saudavel)'
+                      : c.valor >= 60 ? 'var(--cor-atencao)' : 'var(--cor-critico)' }} />
+                </div>
+                <span className="mudo" style={{ minWidth: 210, textAlign: 'right' }}>
+                  {c.valor}% · peso {c.peso} · {c.detalhe}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mudo" style={{ marginTop: 10 }}>
+            Cada demanda vale conforme sua criticidade: peso (1–10) × prioridade × valor × complexidade.
+            Atrasar uma demanda crítica pesa muito mais que atrasar uma rotina simples.
+            Leitura de desenvolvimento, nunca ranking público (Art. 42.10).
+          </p>
+        </>
+      )}
     </div>
   );
 }
