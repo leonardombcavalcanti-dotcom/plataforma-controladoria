@@ -4,6 +4,8 @@ import { useState } from 'react';
 import type { CausaBloqueio, ComplexidadeDemanda, Demanda, MotivoEncerramento, PrioridadeDemanda, ValorDemanda } from '../../domain/demandas';
 import { CAUSA_BLOQUEIO, COMPLEXIDADE, MOTIVO_ENCERRAMENTO, PRIORIDADE, VALOR } from '../../domain/demandas';
 import { usePessoas } from '../../data/queries';
+import { calcularNota, faixaNota, pesoEfetivo } from '../../domain/desempenho';
+import { Badge } from '../../components/ui';
 
 function PainelBase(props: { titulo: string; children: React.ReactNode; onFechar: () => void }) {
   return (
@@ -213,37 +215,72 @@ export function PainelPendencias(props: {
   );
 }
 
-export function PainelAvaliacao(props: {
-  onConfirmar: (nota: number, comentario: string) => void;
+export function PainelComentarioEntrega(props: {
+  d: Demanda;
+  onConfirmar: (comentario: string) => void;
   onFechar: () => void;
 }) {
-  const [nota, setNota] = useState(0);
-  const [comentario, setComentario] = useState('');
+  const { d } = props;
+  const [comentario, setComentario] = useState(d.avaliacao_comentario ?? '');
+  const n = calcularNota([d]);
+  const f = n.nota !== null ? faixaNota(n.nota) : null;
+  const cor = f?.tom === 'saudavel' ? 'var(--cor-saudavel)'
+    : f?.tom === 'info' ? 'var(--cor-primaria)'
+    : f?.tom === 'atencao' ? 'var(--cor-atencao)' : 'var(--cor-critico)';
+  const num = (v: number) => Math.round(v * 10) / 10;
+
   return (
-    <PainelBase titulo="Avaliar a entrega" onFechar={props.onFechar}>
+    <PainelBase titulo="Comentar a entrega" onFechar={props.onFechar}>
       <p className="suave" style={{ marginBottom: 12 }}>
-        A avaliação é imutável e alimenta os indicadores de desempenho — avalie a entrega, nunca a pessoa.
+        A nota é calculada automaticamente — o gestor não pontua. Use este espaço para
+        registrar o que foi bem e o que melhorar. Comente a entrega, nunca a pessoa.
       </p>
-      <div className="linha" style={{ marginBottom: 12 }}>
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} className="btn mini" aria-label={`${n} estrela(s)`}
-                  style={{ fontSize: 18, color: n <= nota ? 'var(--cor-atencao)' : 'var(--texto-mudo)' }}
-                  onClick={() => setNota(n)}>
-            ★
-          </button>
-        ))}
-        <span className="mudo">{nota > 0 ? `${nota}/5` : 'selecione'}</span>
+
+      <div className="cartao" style={{ borderLeft: `4px solid ${cor}`, marginBottom: 12 }}>
+        <div className="linha" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: cor, lineHeight: 1.2 }}>
+              {f?.rotulo ?? '—'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <strong style={{ fontSize: 30, color: cor, lineHeight: 1.1 }}>{n.nota ?? '—'}</strong>
+              <span className="mudo">/100</span>
+            </div>
+            <span className="mudo" style={{ fontSize: 11.5 }}>
+              90–100 Excelente · 75–89 Bom · 60–74 Atenção · abaixo de 60 Crítico
+            </span>
+          </div>
+          <div className="espaco" />
+          <span className="mudo">peso efetivo {pesoEfetivo(d)}</span>
+        </div>
+        <ul className="termos-calculo" style={{ marginTop: 10 }}>
+          {n.componentes.map((comp) => (
+            <li key={comp.nome}>
+              <span className="mono termo-valor">{num(comp.valorExato)}</span>
+              <span>
+                <strong>{comp.nome}</strong> ({comp.peso}%) — {comp.detalhe}
+                <br />
+                <span className="mono" style={{ fontSize: 11.5 }}>{comp.formula}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="mudo" style={{ marginTop: 8, fontSize: 11.5 }}>
+          Soma: {n.componentes.map((x) => num((x.valorExato * x.peso) / 100)).join(' + ')} ={' '}
+          <strong>{n.nota}</strong>
+        </p>
       </div>
+
       <label className="campo">
-        <span>Comentário (opcional)</span>
-        <textarea value={comentario} onChange={(e) => setComentario(e.target.value)}
+        <span>Comentário do gestor</span>
+        <textarea value={comentario} autoFocus onChange={(e) => setComentario(e.target.value)}
                   placeholder="O que foi bem? O que melhorar na próxima?" />
       </label>
       <div className="acoes">
         <button className="btn" onClick={props.onFechar}>Cancelar</button>
-        <button className="btn primario" disabled={nota === 0}
-                onClick={() => props.onConfirmar(nota, comentario.trim())}>
-          Registrar avaliação
+        <button className="btn primario" disabled={comentario.trim().length === 0}
+                onClick={() => props.onConfirmar(comentario.trim())}>
+          Registrar comentário
         </button>
       </div>
     </PainelBase>

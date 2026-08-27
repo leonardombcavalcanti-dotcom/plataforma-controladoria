@@ -71,8 +71,6 @@ export function AppShell(props: { children: ReactNode }) {
       if (d.status === 'solicitada' && !d.devolvida &&
           (d.aprovador_id === pessoa.id || (d.aprovador_id === null && souGestor))) return true;
       if (d.status === 'solicitada' && d.devolvida && d.criador_id === pessoa.id) return true;
-      if (souGestor && d.status === 'concluida' && d.avaliacao_nota === null &&
-          (d.responsavel_id !== pessoa.id || pessoa.perfil === 'admin')) return true;
       return false;
     }).length;
   }, [pessoa, demandas]);

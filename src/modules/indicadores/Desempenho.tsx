@@ -254,7 +254,6 @@ export function Desempenho() {
     const atrasos = concluidas.map(diasAtraso).filter((x) => x > 0);
     const atrasoMedio = atrasos.length
       ? Math.round((atrasos.reduce((a, b) => a + b, 0) / atrasos.length) * 10) / 10 : null;
-    const avals = concluidas.filter((d) => d.avaliacao_nota !== null);
     const ativas = recorte.filter((d) => !['concluida', 'encerrada'].includes(d.status));
     const pesos = concluidas.map(pesoEfetivo);
     const pesoTotal = pesos.reduce((a, b) => a + b, 0);
@@ -268,8 +267,6 @@ export function Desempenho() {
       pctAtrasadas: concluidas.length ? Math.round((atrasos.length / concluidas.length) * 100) : null,
       atrasoMax: atrasos.length ? Math.max(...atrasos) : 0,
       retrabalho: concluidas.reduce((s, d) => s + d.retrabalho, 0),
-      nota: avals.length ? Math.round((avals.reduce((s, d) => s + (d.avaliacao_nota ?? 0), 0) / avals.length) * 10) / 10 : null,
-      pendAval: concluidas.length - avals.length,
       ativas: ativas.length,
       atrasadas: ativas.filter(demandaAtrasada).length,
     };
@@ -776,9 +773,7 @@ function ResumoDemanda(props: { d: Demanda; onFechar: () => void; onAbrirComplet
             <Badge tom={demandaAtrasada(d) ? 'critico' : st.tom}>
               {demandaAtrasada(d) ? 'Atrasada' : st.rotulo}
             </Badge>
-            {d.avaliacao_nota !== null && (
-              <span style={{ color: 'var(--cor-atencao)' }}>{'★'.repeat(d.avaliacao_nota)}</span>
-            )}
+            {d.avaliacao_comentario && <Badge tom="info">💬 comentada</Badge>}
           </div>
         </header>
         <div className="drawer-corpo">

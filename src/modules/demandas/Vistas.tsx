@@ -43,9 +43,7 @@ export function VistasDemandas() {
             (d.status === 'aberta' || d.status === 'bloqueada' || demandaAtrasada(d))) ||
           (d.status === 'em_validacao' && (d.validador_id ?? d.criador_id) === minhaId) ||
           (d.status === 'solicitada' && !d.devolvida && (d.aprovador_id === minhaId || (d.aprovador_id === null && souGestor))) ||
-          (d.status === 'solicitada' && d.devolvida && d.criador_id === minhaId) ||
-          (souGestor && d.status === 'concluida' && d.avaliacao_nota === null &&
-            (d.responsavel_id !== minhaId || eu.perfil === 'admin')));
+          (d.status === 'solicitada' && d.devolvida && d.criador_id === minhaId));
       case 'minhas':
         return lista.filter((d) => d.responsavel_id === minhaId && ativas(d));
       case 'equipe':
@@ -142,8 +140,7 @@ function CartaoDemanda(props: { d: Demanda; onAbrir: () => void }) {
         <Badge tom={st.tom}>{st.rotulo}</Badge>
         {d.status === 'solicitada' && d.devolvida && <Badge tom="atencao">Devolvida</Badge>}
         {d.prioridade !== 'media' && <Badge tom={pr.tom}>{pr.rotulo}</Badge>}
-        {d.avaliacao_nota !== null && <Badge tom="saudavel">{'★'.repeat(d.avaliacao_nota)}</Badge>}
-        {d.status === 'concluida' && d.avaliacao_nota === null && <Badge tom="atencao">aguarda avaliação</Badge>}
+        {d.avaliacao_comentario && <Badge tom="info">comentada</Badge>}
         {ehSubstituicao(d) && <Badge tom="atencao">🔄 substituição</Badge>}
         <div className="espaco" />
         <Badge tom={tomPrazo}>

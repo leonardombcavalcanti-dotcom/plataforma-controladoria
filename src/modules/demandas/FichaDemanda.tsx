@@ -12,11 +12,12 @@ import {
   MOTIVO_ENCERRAMENTO, CAUSA_BLOQUEIO, RECORRENCIA_DEMANDA, descreverEvento, ehSubstituicao, prazoTom,
 } from '../../domain/demandas';
 import { fmtData, fmtDataHora } from '../../domain/regras';
+import { calcularNota } from '../../domain/desempenho';
 import { Badge, Carregando } from '../../components/ui';
 import {
   PainelBloqueio, PainelDelegacao, PainelEncerramento,
   PainelPendencias, PainelReabertura, PainelReprovacao,
-  PainelAvaliacao,
+  PainelComentarioEntrega,
 } from './Paineis';
 import { AcoesSolicitacao } from './Solicitacoes';
 import { AnexosDemanda } from './Anexos';
@@ -118,8 +119,8 @@ export function FichaDemanda() {
             {d.motivo_conclusao && <Badge tom="neutro">{MOTIVO_CONCLUSAO[d.motivo_conclusao]}</Badge>}
             {d.motivo_encerramento && <Badge tom="neutro">{MOTIVO_ENCERRAMENTO[d.motivo_encerramento]}</Badge>}
             {d.retrabalho > 0 && <Badge tom="atencao">Retrabalho ×{d.retrabalho}</Badge>}
-            {d.avaliacao_nota !== null && <Badge tom="saudavel">{'★'.repeat(d.avaliacao_nota)}</Badge>}
-            {d.status === 'concluida' && d.avaliacao_nota === null && <Badge tom="atencao">Aguarda avaliação</Badge>}
+            {d.status === 'concluida' && <Badge tom="saudavel">Nota {calcularNota([d]).nota}</Badge>}
+            {d.avaliacao_comentario && <Badge tom="info">comentada</Badge>}
             {d.anexo_obrigatorio && !finalizada && <Badge tom="atencao">📎 anexo obrigatório</Badge>}
             {ehSubstituicao(d) && <Badge tom="atencao">🔄 Substituição</Badge>}
             {d.recorrencia && <Badge tom="info">↻ {RECORRENCIA_DEMANDA[d.recorrencia]}</Badge>}
@@ -203,9 +204,11 @@ export function FichaDemanda() {
               {!finalizada && (souResponsavel || d.criador_id === eu.id || souGestor) && (
                 <button className="btn mini perigo" onClick={() => setPainel('encerramento')}>Encerrar</button>
               )}
-              {d.status === 'concluida' && d.avaliacao_nota === null && souGestor &&
+              {d.status === 'concluida' && souGestor &&
                 (d.responsavel_id !== eu.id || eu.perfil === 'admin') && (
-                <button className="btn mini primario" onClick={() => setPainel('avaliacao')}>Avaliar entrega</button>
+                <button className="btn mini" onClick={() => setPainel('avaliacao')}>
+                  {d.avaliacao_comentario ? 'Editar comentário' : 'Comentar entrega'}
+                </button>
               )}
               {['concluida', 'encerrada'].includes(d.status) && (d.criador_id === eu.id || souGestor) && (
                 <button className="btn mini" onClick={() => setPainel('reabertura')}>Reabrir</button>
@@ -221,15 +224,14 @@ export function FichaDemanda() {
         </header>
 
         <div className="drawer-corpo">
-          {d.avaliacao_nota !== null && aba === 'atividade' && (
-            <div className="cartao secao" style={{ borderLeft: '3px solid var(--cor-saudavel)' }}>
+          {d.avaliacao_comentario && aba === 'atividade' && (
+            <div className="cartao secao" style={{ borderLeft: '3px solid var(--cor-primaria)' }}>
               <div className="linha">
-                <strong>Avaliação do gestor:</strong>
-                <span style={{ color: 'var(--cor-atencao)', fontSize: 16 }}>{'★'.repeat(d.avaliacao_nota)}</span>
+                <strong>Comentário do gestor</strong>
                 <div className="espaco" />
                 <span className="mudo">{nomeDe(d.avaliada_por)}</span>
               </div>
-              {d.avaliacao_comentario && <p className="suave" style={{ marginTop: 6 }}>"{d.avaliacao_comentario}"</p>}
+              <p className="suave" style={{ marginTop: 6 }}>"{d.avaliacao_comentario}"</p>
             </div>
           )}
           {d.descricao && aba === 'atividade' && (
@@ -388,10 +390,10 @@ export function FichaDemanda() {
           }} />
       )}
       {painel === 'avaliacao' && (
-        <PainelAvaliacao onFechar={() => setPainel(null)}
-          onConfirmar={(nota, comentario) => {
+        <PainelComentarioEntrega d={d} onFechar={() => setPainel(null)}
+          onConfirmar={(comentario) => {
             setPainel(null);
-            executar(() => api.rpcAvaliar(id, nota, comentario || undefined), 'Avaliação registrada');
+            executar(() => api.rpcComentarEntrega(id, comentario), 'Comentário registrado');
           }} />
       )}
       {painel === 'pendencias' && (

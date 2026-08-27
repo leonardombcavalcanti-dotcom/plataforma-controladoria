@@ -47,9 +47,7 @@ export function Central() {
       aguardando: lista.filter((d) =>
         (d.status === 'em_validacao' && (d.validador_id ?? d.criador_id) === eu.id) ||
         (d.status === 'solicitada' && !d.devolvida && (d.aprovador_id === eu.id || (d.aprovador_id === null && souGestor))) ||
-        (d.status === 'solicitada' && d.devolvida && d.criador_id === eu.id) ||
-        (souGestor && d.status === 'concluida' && d.avaliacao_nota === null &&
-          (d.responsavel_id !== eu.id || eu.perfil === 'admin'))),
+        (d.status === 'solicitada' && d.devolvida && d.criador_id === eu.id)),
     };
   }, [demandas, eu, fimHorizonte, souGestor]);
 
@@ -228,7 +226,6 @@ export function Central() {
             <Bloco titulo="Atrasadas" tom="critico" itens={meu.atrasadas} onAbrir={abrir} />
             <Bloco titulo="Aguardando você" tom="atencao" itens={meu.aguardando} onAbrir={abrir}
               legenda={(d) => d.status === 'em_validacao' ? 'validar'
-                : d.status === 'concluida' ? 'avaliar'
                 : d.devolvida ? 'ajustar e reenviar' : 'aprovar'} />
             <Bloco titulo="Bloqueadas" tom="critico" itens={meu.bloqueadas} onAbrir={abrir} />
             <Bloco titulo={rotuloHorizonte} tom="info" itens={meu.hojeLista} onAbrir={abrir} />

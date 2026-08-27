@@ -100,8 +100,8 @@ export function HistoricoDemandas(props: { processoId?: string; somenteAvulsas?:
                         : d.motivo_encerramento ? MOTIVO_ENCERRAMENTO[d.motivo_encerramento]
                         : STATUS_DEMANDA[d.status].rotulo}
                     </Badge>
-                    {d.avaliacao_nota !== null && (
-                      <span style={{ color: 'var(--cor-atencao)' }}>{'★'.repeat(d.avaliacao_nota)}</span>
+                    {d.avaliacao_comentario && (
+                      <span className="mudo" title={d.avaliacao_comentario}>💬</span>
                     )}
                     {(contagem?.get(d.id) ?? 0) > 0 && <Badge tom="neutro">📎 {contagem?.get(d.id)}</Badge>}
                     <div className="espaco" />

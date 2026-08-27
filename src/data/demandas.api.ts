@@ -150,8 +150,9 @@ export const rpcDelegar = (id: string, novoResponsavel: string, mensagem?: strin
 export const rpcApontarTempo = (id: string, horas: number, data: string, comentario?: string) =>
   rpc('apontar_tempo', { p_id: id, p_horas: horas, p_data: data, p_comentario: comentario ?? null });
 
-export const rpcAvaliar = (id: string, nota: number, comentario?: string) =>
-  rpc('avaliar_demanda', { p_id: id, p_nota: nota, p_comentario: comentario ?? null });
+/** O gestor comenta a entrega — sem nota. A nota é calculada pelos indicadores. */
+export const rpcComentarEntrega = (id: string, comentario: string) =>
+  rpc('comentar_entrega', { p_id: id, p_comentario: comentario });
 export const rpcAprovarSolicitacao = (id: string, responsavel: string, prazo: string, peso?: number | null) =>
   rpc('aprovar_solicitacao', { p_id: id, p_responsavel: responsavel, p_prazo: prazo, p_peso: peso ?? null });
 export const rpcDevolverSolicitacao = (id: string, comentario: string) =>
