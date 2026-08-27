@@ -65,6 +65,9 @@ function rotuloEscala(chave: string, e: Escala): { p: string; s: string } {
   return { p: `${d}/${m}`, s: `a ${fim.getUTCDate()}/${fim.getUTCMonth() + 1}` };
 }
 
+/** Título sem o sufixo de competência — agrupa as ocorrências da mesma demanda. */
+const tituloBase = (t: string) => t.replace(/ — \d{4}-\d{2}$/, '');
+
 /** Dias vencidos de uma demanda ainda não entregue (0 se está em dia). */
 const diasVencidos = (d: Demanda): number => {
   const hoje = new Date(new Date().toISOString().slice(0, 10) + 'T12:00:00Z').getTime();
@@ -165,6 +168,7 @@ export function Desempenho() {
   const [tipoF, setTipoF] = useState<string[]>([]);
   const [metrica, setMetrica] = useState<Metrica>('qtd');
   const [periodoSel, setPeriodoSel] = useState<{ escala: Escala; chave: string } | null>(null);
+  const [demandaFoco, setDemandaFoco] = useState<string | null>(null);
   const [recF, setRecF] = useState('');
   const [situacaoSel, setSituacaoSel] = useState<'concluida' | 'atrasada' | 'andamento' | null>(null);
   const [ordem, setOrdem] = useState<{ col: string; asc: boolean }>({ col: 'prazo', asc: false });
@@ -218,6 +222,7 @@ export function Desempenho() {
       lista = lista.filter((d) =>
         chaveEscala(dataCompetencia(d), periodoSel.escala) === periodoSel.chave);
     }
+    if (demandaFoco) lista = lista.filter((d) => tituloBase(d.titulo) === demandaFoco);
     if (situacaoSel) {
       lista = lista.filter((d) => {
         const fin = ['concluida', 'encerrada'].includes(d.status);
@@ -227,17 +232,19 @@ export function Desempenho() {
       });
     }
     return lista;
-  }, [base, periodoSel, situacaoSel]);
+  }, [base, periodoSel, demandaFoco, situacaoSel]);
 
   // Pizza: composição por situação (do recorte SEM o corte de situação, para navegar)
   const pizza = useMemo(() => {
-    const lista = !periodoSel ? base : base.filter((d) =>
+    let lista = base;
+    if (periodoSel) lista = lista.filter((d) =>
       chaveEscala(dataCompetencia(d), periodoSel.escala) === periodoSel.chave);
+    if (demandaFoco) lista = lista.filter((d) => tituloBase(d.titulo) === demandaFoco);
     const conc = lista.filter((d) => ['concluida', 'encerrada'].includes(d.status)).length;
     const atra = lista.filter((d) => !['concluida', 'encerrada'].includes(d.status) && demandaAtrasada(d)).length;
     const anda = lista.length - conc - atra;
     return { conc, atra, anda, total: lista.length };
-  }, [base, periodoSel]);
+  }, [base, periodoSel, demandaFoco]);
 
   const concluidas = useMemo(() => recorte.filter((d) => d.status === 'concluida'), [recorte]);
 
@@ -278,18 +285,22 @@ export function Desempenho() {
     return Math.max(1, ...porPessoa.values());
   }, [concluidas]);
 
+  // Sobre a BASE (ignora a própria seleção) para o gráfico não colapsar ao clicar.
   const porDemanda = useMemo(() => {
-    const base = (t: string) => t.replace(/ — \d{4}-\d{2}$/, '');
+    let lista = base;
+    if (periodoSel) lista = lista.filter((d) =>
+      chaveEscala(dataCompetencia(d), periodoSel.escala) === periodoSel.chave);
     const grupos = new Map<string, Demanda[]>();
-    for (const d of concluidas) {
-      const k = base(d.titulo);
+    for (const d of lista) {
+      if (d.status !== 'concluida') continue;
+      const k = tituloBase(d.titulo);
       grupos.set(k, [...(grupos.get(k) ?? []), d]);
     }
     return [...grupos.entries()]
-      .map(([rotulo, lista]) => ({ id: rotulo, rotulo, ...metricaDe(lista, metrica) }))
+      .map(([rotulo, itens]) => ({ id: rotulo, rotulo, ...metricaDe(itens, metrica) }))
       .sort((a, b) => (b.valor ?? 0) - (a.valor ?? 0))
       .slice(0, 25);
-  }, [concluidas, metrica]);
+  }, [base, periodoSel, metrica]);
 
   // Série temporal na escala escolhida — sempre sobre a BASE, para que
   // selecionar um período não faça o próprio gráfico sumir (cross-filter).
@@ -387,12 +398,12 @@ export function Desempenho() {
   if (isLoading || !eu) return <Carregando linhas={6} />;
 
   const limparTudo = () => {
-    setAreaF([]); setPessoaF([]); setProcessoF([]); setTipoF([]); setPeriodoSel(null);
+    setAreaF([]); setPessoaF([]); setProcessoF([]); setTipoF([]); setPeriodoSel(null); setDemandaFoco(null);
     setRecF(''); setSituacaoSel(null); setPeriodo('90'); setDe(''); setAte('');
   };
   const ativosFiltro = areaF.length + pessoaF.length + processoF.length + tipoF.length
     + (recF ? 1 : 0) + (periodo !== '90' ? 1 : 0);
-  const temFiltro = areaF.length + pessoaF.length + processoF.length + tipoF.length > 0 || periodoSel || recF || situacaoSel;
+  const temFiltro = areaF.length + pessoaF.length + processoF.length + tipoF.length > 0 || periodoSel || demandaFoco || recF || situacaoSel;
 
   const Cab = (p: { col: string; children: ReactNode; w?: string }) => (
     <span style={{ width: p.w, flexShrink: 0, cursor: 'pointer', fontWeight: 600 }}
@@ -461,6 +472,11 @@ export function Desempenho() {
             {periodoSel.escala !== 'dia' ? ` ${rotuloEscala(periodoSel.chave, periodoSel.escala).s}` : ''} ✕
           </button>
         )}
+        {demandaFoco && (
+          <button className="btn mini" onClick={() => setDemandaFoco(null)} title={demandaFoco}>
+            🧾 {demandaFoco.length > 34 ? demandaFoco.slice(0, 34) + '…' : demandaFoco} ✕
+          </button>
+        )}
         {temFiltro && (
           <button className="btn mini" onClick={limparTudo}>Limpar filtros</button>
         )}
@@ -502,8 +518,8 @@ export function Desempenho() {
       {/* ===== Gráficos com cross-filter ===== */}
       <div className="dash-graficos secao">
         <GraficoBarras titulo={`Por demanda — ${METRICAS[metrica]}`} linhas={porDemanda}
-          ativoId={null} cor="var(--cor-primaria)"
-          onClique={(id) => setCol('demanda', colFiltros['demanda'] === id ? '' : id)} />
+          ativoId={demandaFoco} cor="var(--cor-primaria)"
+          onClique={(id) => setDemandaFoco(demandaFoco === id ? null : id)} />
         <GraficoBarras titulo={`Por processo — ${METRICAS[metrica]}`} linhas={porProcesso}
           ativoId={processoF.length === 1 ? processoF[0] : null} cor="var(--cor-saudavel)"
           onClique={(id) => setProcessoF(processoF.length === 1 && processoF[0] === id ? [] : [id])} />
