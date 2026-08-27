@@ -50,16 +50,18 @@ export interface NotaDesempenho {
   concluidas: number;
   pesoTotal: number;                // soma do peso efetivo entregue
   pesoMedio: number | null;
-  componentes: { nome: string; valor: number; peso: number; detalhe: string }[];
+  componentes: { nome: string; valor: number; valorExato: number; peso: number; detalhe: string; formula: string }[];
 }
 
-const PESOS_NOTA = { sla: 40, atraso: 20, retrabalho: 20, entrega: 20 };
+export const PESOS_NOTA = { sla: 40, atraso: 20, retrabalho: 20, entrega: 20 };
 
 /**
  * Calcula a nota do recorte.
  * @param concluidas demandas concluídas do recorte
  * @param referenciaEntrega peso efetivo total esperado (ex.: melhor entrega do grupo)
  */
+const arred = (n: number) => Math.round(n * 10) / 10;
+
 export function calcularNota(concluidas: Demanda[], referenciaEntrega?: number): NotaDesempenho {
   if (concluidas.length === 0) {
     return { nota: null, amostraPequena: true, concluidas: 0, pesoTotal: 0, pesoMedio: null, componentes: [] };
@@ -105,14 +107,18 @@ export function calcularNota(concluidas: Demanda[], referenciaEntrega?: number):
     pesoTotal: Math.round(pesoTotal * 10) / 10,
     pesoMedio,
     componentes: [
-      { nome: 'SLA ponderado', valor: Math.round(sla), peso: PESOS_NOTA.sla,
-        detalhe: `${Math.round(pesoNoPrazo)} de ${Math.round(pesoTotal)} pontos de peso no prazo` },
-      { nome: 'Pontualidade', valor: Math.round(pontualidade), peso: PESOS_NOTA.atraso,
-        detalhe: atrasadas.length ? `${atrasadas.length} atraso(s), média ${mediaDiasAtraso} dia(s)` : 'sem atrasos' },
-      { nome: 'Qualidade (sem retrabalho)', valor: Math.round(qualidade), peso: PESOS_NOTA.retrabalho,
-        detalhe: comRetrabalho ? `${comRetrabalho} com retrabalho` : 'nenhum retrabalho' },
-      { nome: 'Entrega ponderada', valor: Math.round(entrega), peso: PESOS_NOTA.entrega,
-        detalhe: `${Math.round(pesoTotal)} pontos de peso entregues` },
+      { nome: 'SLA ponderado', valor: Math.round(sla), valorExato: sla, peso: PESOS_NOTA.sla,
+        detalhe: `${Math.round(pesoNoPrazo)} de ${Math.round(pesoTotal)} pontos de peso no prazo`,
+        formula: `${arred(pesoNoPrazo)} ÷ ${arred(pesoTotal)} × 100 = ${arred(sla)}` },
+      { nome: 'Pontualidade', valor: Math.round(pontualidade), valorExato: pontualidade, peso: PESOS_NOTA.atraso,
+        detalhe: atrasadas.length ? `${atrasadas.length} atraso(s), média ${mediaDiasAtraso} dia(s)` : 'sem atrasos',
+        formula: `(1 − ${arred(penal)} ÷ ${arred(pesoTotal)}) × 100 = ${arred(pontualidade)}` },
+      { nome: 'Qualidade (sem retrabalho)', valor: Math.round(qualidade), valorExato: qualidade, peso: PESOS_NOTA.retrabalho,
+        detalhe: comRetrabalho ? `${comRetrabalho} com retrabalho` : 'nenhum retrabalho',
+        formula: `${arred(pesoSemRetrabalho)} ÷ ${arred(pesoTotal)} × 100 = ${arred(qualidade)}` },
+      { nome: 'Entrega ponderada', valor: Math.round(entrega), valorExato: entrega, peso: PESOS_NOTA.entrega,
+        detalhe: `${Math.round(pesoTotal)} pontos de peso entregues`,
+        formula: `${arred(pesoTotal)} ÷ ${arred(ref)} × 100 = ${arred(entrega)}` },
     ],
   };
 }

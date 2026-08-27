@@ -16,7 +16,11 @@ import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import { MultiFiltro } from '../../components/MultiFiltro';
 import { CampoFiltro, PainelFiltros } from '../../components/PainelFiltros';
 import { useAnexos } from '../demandas/Anexos';
-import { calcularNota, faixaNota, pesoEfetivo, diasAtraso } from '../../domain/desempenho';
+import {
+  calcularNota, faixaNota, pesoEfetivo, diasAtraso,
+  MULT_PRIORIDADE, MULT_VALOR, MULT_COMPLEXIDADE,
+} from '../../domain/desempenho';
+import type { NotaDesempenho } from '../../domain/desempenho';
 
 type Periodo = '30' | '90' | '365' | 'este_mes' | 'mes_passado' | 'este_ano' | 'tudo' | 'custom';
 type Metrica = 'qtd' | 'peso' | 'lead' | 'sla' | 'nota';
@@ -790,6 +794,7 @@ function PainelNota(props: {
 }) {
   const n = calcularNota(props.concluidas, props.referencia);
   const [aberto, setAberto] = useState(false);
+  const [explica, setExplica] = useState(false);
   if (n.nota === null) {
     return (
       <div className="cartao secao">
@@ -812,6 +817,9 @@ function PainelNota(props: {
         <span className="mudo">/100</span>
         <Badge tom={f.tom}>{f.rotulo}</Badge>
         {n.amostraPequena && <Badge tom="atencao">amostra pequena ({n.concluidas})</Badge>}
+        <button className="btn-ajuda" title="Como esta nota é calculada?"
+                aria-label="Como esta nota é calculada?"
+                onClick={(e) => { e.stopPropagation(); setExplica(true); }}>?</button>
         <span className="mudo">· peso médio {n.pesoMedio} · {n.pesoTotal} pontos entregues</span>
         <div className="espaco" />
         <span className="mudo">{aberto ? 'ocultar ▴' : 'ver composição ▾'}</span>
@@ -842,6 +850,89 @@ function PainelNota(props: {
           </p>
         </>
       )}
+
+      {explica && (
+        <ExplicaNota n={n} alvo={props.alvo} concluidas={props.concluidas}
+                     onFechar={() => setExplica(false)} />
+      )}
+    </div>
+  );
+}
+
+/** Explicação da nota: método + o cálculo real deste recorte. */
+function ExplicaNota(props: {
+  n: NotaDesempenho; alvo: string; concluidas: Demanda[]; onFechar: () => void;
+}) {
+  const { n } = props;
+  const soma = n.componentes.reduce((s, c) => s + (c.valorExato * c.peso) / 100, 0);
+  const num = (v: number) => Math.round(v * 10) / 10;
+
+  // Demanda mais crítica do recorte, para ilustrar o peso efetivo
+  const exemplo = [...props.concluidas].sort((a, b) => pesoEfetivo(b) - pesoEfetivo(a))[0];
+
+  return (
+    <div className="modal-fundo" onClick={props.onFechar}>
+      <div className="modal modal-largo" onClick={(e) => e.stopPropagation()}>
+        <h2>Como a nota é calculada</h2>
+        <p className="suave">
+          A nota vai de 0 a 100 e mede a <strong>entrega ponderada pela criticidade</strong>.
+          Uma demanda crítica de peso 10 atrasada derruba a nota muito mais que uma rotina simples de peso 2.
+        </p>
+
+        <h3 className="secao">1 · Quanto cada demanda vale (peso efetivo)</h3>
+        <p className="mudo" style={{ marginTop: 4 }}>
+          peso efetivo = peso informado (1–10) × média dos ajustes de prioridade, valor e complexidade —
+          sempre limitado a 10.
+        </p>
+        {exemplo && (
+          <div className="bloco-calculo">
+            <strong>{exemplo.titulo}</strong><br />
+            peso {exemplo.peso ?? 5} × ({MULT_PRIORIDADE[exemplo.prioridade] ?? 1} + {MULT_VALOR[exemplo.valor] ?? 1}
+            {' '}+ {exemplo.complexidade ? (MULT_COMPLEXIDADE[exemplo.complexidade] ?? 1) : 1}) ÷ 3
+            {' '}= <strong>{pesoEfetivo(exemplo)}</strong>
+          </div>
+        )}
+
+        <h3 className="secao">2 · Os quatro componentes deste recorte</h3>
+        <table className="tab-calculo">
+          <thead>
+            <tr><th>Componente</th><th>Conta feita</th><th>Resultado</th><th>Peso</th><th>Contribuição</th></tr>
+          </thead>
+          <tbody>
+            {n.componentes.map((c) => (
+              <tr key={c.nome}>
+                <td>{c.nome}<br /><span className="mudo">{c.detalhe}</span></td>
+                <td className="mono">{c.formula}</td>
+                <td className="mono">{num(c.valorExato)}</td>
+                <td className="mono">{c.peso}%</td>
+                <td className="mono"><strong>{num((c.valorExato * c.peso) / 100)}</strong></td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={4}>Soma das contribuições — nota de {props.alvo}</td>
+              <td className="mono"><strong>{num(soma)} → {n.nota}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <h3 className="secao">3 · Base do cálculo</h3>
+        <p className="mudo" style={{ marginTop: 4 }}>
+          {n.concluidas} entrega(s) concluída(s) · peso médio {n.pesoMedio} · {n.pesoTotal} pontos de peso entregues.
+          {n.amostraPequena && ' Menos de 5 entregas: leia a nota como indício, não como conclusão.'}
+        </p>
+
+        <h3 className="secao">4 · Faixas</h3>
+        <p className="mudo" style={{ marginTop: 4 }}>
+          90–100 Excelente · 75–89 Bom · 60–74 Atenção · abaixo de 60 Crítico.
+          Leitura de desenvolvimento individual — nunca ranking público (Art. 42.10 da Constituição).
+        </p>
+
+        <div className="acoes">
+          <button className="btn primario" onClick={props.onFechar}>Entendi</button>
+        </div>
+      </div>
     </div>
   );
 }
