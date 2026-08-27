@@ -215,72 +215,84 @@ export function PainelPendencias(props: {
   );
 }
 
-export function PainelComentarioEntrega(props: {
+export function PainelValidacaoEntrega(props: {
   d: Demanda;
   onConfirmar: (comentario: string) => void;
   onFechar: () => void;
 }) {
   const { d } = props;
-  const [comentario, setComentario] = useState(d.avaliacao_comentario ?? '');
+  const [comentario, setComentario] = useState('');
+  const [verBase, setVerBase] = useState(false);
   const n = calcularNota([d]);
   const f = n.nota !== null ? faixaNota(n.nota) : null;
   const cor = f?.tom === 'saudavel' ? 'var(--cor-saudavel)'
     : f?.tom === 'info' ? 'var(--cor-primaria)'
     : f?.tom === 'atencao' ? 'var(--cor-atencao)' : 'var(--cor-critico)';
   const num = (v: number) => Math.round(v * 10) / 10;
+  const temComentario = comentario.trim().length > 0;
 
   return (
-    <PainelBase titulo="Comentar a entrega" onFechar={props.onFechar}>
+    <PainelBase titulo="Validar a entrega" onFechar={props.onFechar}>
       <p className="suave" style={{ marginBottom: 12 }}>
-        A nota é calculada automaticamente — o gestor não pontua. Use este espaço para
-        registrar o que foi bem e o que melhorar. Comente a entrega, nunca a pessoa.
+        A nota é calculada automaticamente — o gestor não pontua. Dê o ok na entrega e,
+        se necessário, deixe um comentário: ele chega ao responsável. Comente a entrega, nunca a pessoa.
       </p>
 
-      <div className="cartao" style={{ borderLeft: `4px solid ${cor}`, marginBottom: 12 }}>
-        <div className="linha" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div className="cartao nota-cartao" style={{ borderLeft: `4px solid ${cor}` }}>
+        <div className="linha" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: cor, lineHeight: 1.2 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: cor, lineHeight: 1.2 }}>
               {f?.rotulo ?? '—'}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <strong style={{ fontSize: 30, color: cor, lineHeight: 1.1 }}>{n.nota ?? '—'}</strong>
+              <strong style={{ fontSize: 28, color: cor, lineHeight: 1.1 }}>{n.nota ?? '—'}</strong>
               <span className="mudo">/100</span>
             </div>
-            <span className="mudo" style={{ fontSize: 11.5 }}>
-              90–100 Excelente · 75–89 Bom · 60–74 Atenção · abaixo de 60 Crítico
-            </span>
           </div>
           <div className="espaco" />
           <span className="mudo">peso efetivo {pesoEfetivo(d)}</span>
+          <button className="btn-ajuda" aria-expanded={verBase}
+                  title="Ver a base de cálculo desta nota"
+                  onClick={() => setVerBase(!verBase)}>?</button>
         </div>
-        <ul className="termos-calculo" style={{ marginTop: 10 }}>
-          {n.componentes.map((comp) => (
-            <li key={comp.nome}>
-              <span className="mono termo-valor">{num(comp.valorExato)}</span>
-              <span>
-                <strong>{comp.nome}</strong> ({comp.peso}%) — {comp.detalhe}
-                <br />
-                <span className="mono" style={{ fontSize: 11.5 }}>{comp.formula}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="mudo" style={{ marginTop: 8, fontSize: 11.5 }}>
-          Soma: {n.componentes.map((x) => num((x.valorExato * x.peso) / 100)).join(' + ')} ={' '}
-          <strong>{n.nota}</strong>
-        </p>
+
+        {verBase && (
+          <>
+            <ul className="termos-calculo" style={{ marginTop: 10 }}>
+              {n.componentes.map((comp) => (
+                <li key={comp.nome}>
+                  <span className="mono termo-valor">{num(comp.valorExato)}</span>
+                  <span>
+                    <strong>{comp.nome}</strong> ({comp.peso}%) — {comp.detalhe}
+                    <br />
+                    <span className="mono" style={{ fontSize: 11.5 }}>{comp.formula}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mudo" style={{ marginTop: 8, fontSize: 11.5 }}>
+              Soma: {n.componentes.map((x) => num((x.valorExato * x.peso) / 100)).join(' + ')} ={' '}
+              <strong>{n.nota}</strong> · 90–100 Excelente · 75–89 Bom · 60–74 Atenção · abaixo de 60 Crítico
+            </p>
+          </>
+        )}
       </div>
 
-      <label className="campo">
-        <span>Comentário do gestor</span>
-        <textarea value={comentario} autoFocus onChange={(e) => setComentario(e.target.value)}
+      {d.avaliacao_comentario && (
+        <p className="mudo" style={{ marginTop: 10 }}>
+          Comentário anterior: "{d.avaliacao_comentario}"
+        </p>
+      )}
+
+      <label className="campo" style={{ marginTop: 10 }}>
+        <span>Comentário ao responsável (opcional)</span>
+        <textarea value={comentario} onChange={(e) => setComentario(e.target.value)}
                   placeholder="O que foi bem? O que melhorar na próxima?" />
       </label>
       <div className="acoes">
         <button className="btn" onClick={props.onFechar}>Cancelar</button>
-        <button className="btn primario" disabled={comentario.trim().length === 0}
-                onClick={() => props.onConfirmar(comentario.trim())}>
-          Registrar comentário
+        <button className="btn primario" onClick={() => props.onConfirmar(comentario.trim())}>
+          {temComentario ? 'Validar e enviar comentário' : 'Validar entrega (OK)'}
         </button>
       </div>
     </PainelBase>

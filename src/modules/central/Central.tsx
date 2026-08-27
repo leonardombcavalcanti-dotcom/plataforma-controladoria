@@ -7,7 +7,7 @@ import { useDemandas } from '../../data/demandas.queries';
 import { usePessoaAtual } from '../../data/queries';
 import { useBloqueiosAtivos, useOcorrenciasAbertas } from '../../data/central.api';
 import { type Demanda, CAUSA_BLOQUEIO, PRIORIDADE, RECORRENCIA_DEMANDA, STATUS_DEMANDA, demandaAtrasada, ehSubstituicao, prazoTom } from '../../domain/demandas';
-import { fmtCompetencia, fmtData } from '../../domain/regras';
+import { aguardaValidacao, comentarioNaoLido, fmtCompetencia, fmtData } from '../../domain/regras';
 import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import { StatusProcessos } from './StatusProcessos';
 
@@ -47,7 +47,9 @@ export function Central() {
       aguardando: lista.filter((d) =>
         (d.status === 'em_validacao' && (d.validador_id ?? d.criador_id) === eu.id) ||
         (d.status === 'solicitada' && !d.devolvida && (d.aprovador_id === eu.id || (d.aprovador_id === null && souGestor))) ||
-        (d.status === 'solicitada' && d.devolvida && d.criador_id === eu.id)),
+        (d.status === 'solicitada' && d.devolvida && d.criador_id === eu.id) ||
+        (souGestor && aguardaValidacao(d) && (d.responsavel_id !== eu.id || eu.perfil === 'admin')) ||
+        (comentarioNaoLido(d) && d.responsavel_id === eu.id)),
     };
   }, [demandas, eu, fimHorizonte, souGestor]);
 
@@ -226,6 +228,8 @@ export function Central() {
             <Bloco titulo="Atrasadas" tom="critico" itens={meu.atrasadas} onAbrir={abrir} />
             <Bloco titulo="Aguardando você" tom="atencao" itens={meu.aguardando} onAbrir={abrir}
               legenda={(d) => d.status === 'em_validacao' ? 'validar'
+                : comentarioNaoLido(d) && d.responsavel_id === eu?.id ? 'ler comentário'
+                : d.status === 'concluida' ? 'validar entrega'
                 : d.devolvida ? 'ajustar e reenviar' : 'aprovar'} />
             <Bloco titulo="Bloqueadas" tom="critico" itens={meu.bloqueadas} onAbrir={abrir} />
             <Bloco titulo={rotuloHorizonte} tom="info" itens={meu.hojeLista} onAbrir={abrir} />

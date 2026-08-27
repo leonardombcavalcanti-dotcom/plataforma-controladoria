@@ -150,9 +150,12 @@ export const rpcDelegar = (id: string, novoResponsavel: string, mensagem?: strin
 export const rpcApontarTempo = (id: string, horas: number, data: string, comentario?: string) =>
   rpc('apontar_tempo', { p_id: id, p_horas: horas, p_data: data, p_comentario: comentario ?? null });
 
-/** O gestor comenta a entrega — sem nota. A nota é calculada pelos indicadores. */
-export const rpcComentarEntrega = (id: string, comentario: string) =>
-  rpc('comentar_entrega', { p_id: id, p_comentario: comentario });
+/** O gestor valida a entrega; o comentário é opcional e vira pendência do liderado. */
+export const rpcValidarEntrega = (id: string, comentario?: string) =>
+  rpc('validar_entrega', { p_id: id, p_comentario: comentario ?? null });
+/** O liderado dá ciência do comentário do gestor. */
+export const rpcComentarioLido = (id: string) =>
+  rpc('marcar_comentario_lido', { p_id: id });
 export const rpcAprovarSolicitacao = (id: string, responsavel: string, prazo: string, peso?: number | null) =>
   rpc('aprovar_solicitacao', { p_id: id, p_responsavel: responsavel, p_prazo: prazo, p_peso: peso ?? null });
 export const rpcDevolverSolicitacao = (id: string, comentario: string) =>

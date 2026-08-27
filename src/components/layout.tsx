@@ -1,3 +1,4 @@
+import { aguardaValidacao, comentarioNaoLido } from '../domain/regras';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -71,6 +72,9 @@ export function AppShell(props: { children: ReactNode }) {
       if (d.status === 'solicitada' && !d.devolvida &&
           (d.aprovador_id === pessoa.id || (d.aprovador_id === null && souGestor))) return true;
       if (d.status === 'solicitada' && d.devolvida && d.criador_id === pessoa.id) return true;
+      if (souGestor && aguardaValidacao(d) &&
+          (d.responsavel_id !== pessoa.id || pessoa.perfil === 'admin')) return true;
+      if (comentarioNaoLido(d) && d.responsavel_id === pessoa.id) return true;
       return false;
     }).length;
   }, [pessoa, demandas]);

@@ -5,7 +5,7 @@ import { usePessoaAtual } from '../../data/queries';
 import {
   type Demanda, STATUS_DEMANDA, PRIORIDADE, demandaAtrasada, ehSubstituicao, prazoTom,
 } from '../../domain/demandas';
-import { fmtData } from '../../domain/regras';
+import { aguardaValidacao, comentarioNaoLido, fmtData } from '../../domain/regras';
 import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import { Solicitacoes } from './Solicitacoes';
 import { HistoricoDemandas } from './Historico';
@@ -43,7 +43,9 @@ export function VistasDemandas() {
             (d.status === 'aberta' || d.status === 'bloqueada' || demandaAtrasada(d))) ||
           (d.status === 'em_validacao' && (d.validador_id ?? d.criador_id) === minhaId) ||
           (d.status === 'solicitada' && !d.devolvida && (d.aprovador_id === minhaId || (d.aprovador_id === null && souGestor))) ||
-          (d.status === 'solicitada' && d.devolvida && d.criador_id === minhaId));
+          (d.status === 'solicitada' && d.devolvida && d.criador_id === minhaId) ||
+          (souGestor && aguardaValidacao(d) && (d.responsavel_id !== minhaId || eu.perfil === 'admin')) ||
+          (comentarioNaoLido(d) && d.responsavel_id === minhaId));
       case 'minhas':
         return lista.filter((d) => d.responsavel_id === minhaId && ativas(d));
       case 'equipe':
@@ -140,7 +142,8 @@ function CartaoDemanda(props: { d: Demanda; onAbrir: () => void }) {
         <Badge tom={st.tom}>{st.rotulo}</Badge>
         {d.status === 'solicitada' && d.devolvida && <Badge tom="atencao">Devolvida</Badge>}
         {d.prioridade !== 'media' && <Badge tom={pr.tom}>{pr.rotulo}</Badge>}
-        {d.avaliacao_comentario && <Badge tom="info">comentada</Badge>}
+        {aguardaValidacao(d) && <Badge tom="atencao">aguarda validação</Badge>}
+        {comentarioNaoLido(d) && <Badge tom="info">💬 novo</Badge>}
         {ehSubstituicao(d) && <Badge tom="atencao">🔄 substituição</Badge>}
         <div className="espaco" />
         <Badge tom={tomPrazo}>

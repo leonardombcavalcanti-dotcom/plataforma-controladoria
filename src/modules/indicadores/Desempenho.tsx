@@ -305,6 +305,7 @@ export function Desempenho() {
     const grupos = new Map<string, Demanda[]>();
     for (const d of base) {
       if (d.status !== 'concluida' || !d.concluida_em) continue;
+      if (demandaFoco && tituloBase(d.titulo) !== demandaFoco) continue;
       const k = chaveEscala(d.concluida_em.slice(0, 10), escala);
       grupos.set(k, [...(grupos.get(k) ?? []), d]);
     }
@@ -317,7 +318,7 @@ export function Desempenho() {
         ...rotuloEscala(k, escala),
         ...metricaDe(lista, metrica),
       }));
-  }, [base, metrica, escala]);
+  }, [base, demandaFoco, metrica, escala]);
 
   const porProcesso = useMemo(() => {
     const grupos = new Map<string, { rotulo: string; lista: Demanda[] }>();

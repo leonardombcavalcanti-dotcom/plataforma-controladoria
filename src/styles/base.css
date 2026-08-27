@@ -547,3 +547,6 @@ button.cal-item { font-family: inherit; cursor: pointer; }
   font-variant-numeric: tabular-nums;
 }
 .termos-calculo strong { color: var(--texto); font-weight: 600; }
+
+.nota-cartao { padding: 12px 14px; }
+.nota-cartao .termos-calculo { border-top: 1px solid var(--borda); padding-top: 10px; }

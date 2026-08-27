@@ -52,6 +52,7 @@ export interface Demanda {
   avaliacao_comentario: string | null;
   avaliada_por: string | null;
   avaliada_em: string | null;
+  comentario_lido_em: string | null;
   substituindo_id: string | null;
   criado_em: string;
   responsavel?: Pick<Pessoa, 'id' | 'nome'> | null;

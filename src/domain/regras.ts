@@ -92,3 +92,14 @@ export function revisaoVencida(ultimaRevisao: string | null, periodicidade: Peri
   limite.setMonth(limite.getMonth() + meses);
   return limite < new Date();
 }
+
+// ---- Validação da entrega (Sprint 23b) ----
+import type { Demanda } from './demandas';
+
+/** Entrega concluída que ainda espera o "ok" do gestor. */
+export const aguardaValidacao = (d: Demanda): boolean =>
+  d.status === 'concluida' && d.avaliada_em === null;
+
+/** Comentário do gestor que o responsável ainda não leu. */
+export const comentarioNaoLido = (d: Demanda): boolean =>
+  !!d.avaliacao_comentario && d.comentario_lido_em === null;
