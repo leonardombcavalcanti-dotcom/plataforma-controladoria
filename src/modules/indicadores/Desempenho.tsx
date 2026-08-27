@@ -126,6 +126,8 @@ export function Desempenho() {
   const [situacaoSel, setSituacaoSel] = useState<'concluida' | 'atrasada' | 'andamento' | null>(null);
   const [ordem, setOrdem] = useState<{ col: string; asc: boolean }>({ col: 'prazo', asc: false });
   const [demandaSel, setDemandaSel] = useState<Demanda | null>(null);
+  const [colFiltros, setColFiltros] = useState<Record<string, string>>({});
+  const setCol = (k: string, v: string) => setColFiltros((f) => ({ ...f, [k]: v }));
 
   const pessoaEfetiva = ehGestor ? pessoaF : (eu ? [eu.id] : []);
 
@@ -288,20 +290,39 @@ export function Desempenho() {
         case 'processo': return (d.processo?.nome ?? 'zzz').toLowerCase();
         case 'prioridade': return ['critica', 'alta', 'media', 'baixa'].indexOf(d.prioridade);
         case 'peso': return pesoEfetivo(d);
-        case 'nota': return calcularNota([d]).nota ?? -1;
+        case 'nota': return d.status === 'concluida' ? notaDemanda(d) : 0;
         case 'entrega': return d.concluida_em ?? '';
         case 'sla': return slaDe(d).rotulo;
         case 'responsavel': return (d.responsavel?.nome ?? '').toLowerCase();
         default: return d.prazo;
       }
     };
-    return [...recorte].sort((a, b) => {
+    const texto = (d: Demanda, col: string): string => {
+      switch (col) {
+        case 'demanda': return d.titulo;
+        case 'processo': return d.processo?.nome ?? 'Avulsa';
+        case 'prioridade': return PRIORIDADE[d.prioridade].rotulo;
+        case 'peso': return String(pesoEfetivo(d));
+        case 'prazo': return fmtData(d.prazo);
+        case 'entrega': return d.concluida_em ? fmtData(d.concluida_em) : '';
+        case 'sla': return slaDe(d).rotulo;
+        case 'nota': return d.status === 'concluida' ? String(notaDemanda(d)) : '0';
+        case 'responsavel': return d.responsavel?.nome ?? '';
+        case 'recorrente': return d.recorrencia ? RECORRENCIA_DEMANDA[d.recorrencia] : '';
+        default: return '';
+      }
+    };
+    const filtrado = recorte.filter((d) =>
+      Object.entries(colFiltros).every(([col, val]) =>
+        !val || texto(d, col).toLowerCase().includes(val.toLowerCase())));
+
+    return [...filtrado].sort((a, b) => {
       const va = chaveDe(a); const vb = chaveDe(b);
       const r = va < vb ? -1 : va > vb ? 1 : 0;
       return ordem.asc ? r : -r;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recorte, ordem]);
+  }, [recorte, ordem, colFiltros]);
 
   if (isLoading || !eu) return <Carregando linhas={6} />;
 
@@ -397,7 +418,6 @@ export function Desempenho() {
         <Kpi rotulo="Lead (horas)" valor={kpis.leadH === null ? '—' : `${kpis.leadH}h`} />
         <Kpi rotulo="Retrabalho" valor={String(kpis.retrabalho)} tom={kpis.retrabalho > 0 ? 'critico' : undefined} />
         <Kpi rotulo="Peso médio" valor={kpis.pesoMedio === null ? '—' : String(kpis.pesoMedio)} />
-        <Kpi rotulo="Peso entregue" valor={String(kpis.pesoTotal)} />
         <Kpi rotulo="Ativas" valor={String(kpis.ativas)} />
         <Kpi rotulo="Atrasadas" valor={String(kpis.atrasadas)} tom={kpis.atrasadas > 0 ? 'critico' : undefined} />
       </div>
@@ -426,65 +446,81 @@ export function Desempenho() {
 
       {/* ===== Tabela analítica ===== */}
       <div className="cartao">
-        <div className="linha" style={{ marginBottom: 8 }}>
+        <div className="linha" style={{ marginBottom: 8, flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0 }}>Demandas do recorte</h3>
           <Badge tom="info">{tabela.length}</Badge>
+          {Object.values(colFiltros).some(Boolean) && (
+            <button className="btn mini" onClick={() => setColFiltros({})}>Limpar filtros da tabela</button>
+          )}
           <div className="espaco" />
-          <span className="mudo">clique na linha para o resumo · clique no cabeçalho para ordenar</span>
+          <button className="btn mini" onClick={() => exportarTabela(tabela, contagemAnexos)}>
+            ⬇ Exportar Excel
+          </button>
         </div>
-        <div className="dash-tab-scroll">
-        <div className="dash-tab" style={{ minWidth: 1080 }}>
-        <div className="linha dash-tab-cab">
-          <Cab col="demanda" w="300px">Demanda</Cab>
-          <Cab col="processo" w="170px">Processo</Cab>
-          <Cab col="prioridade" w="95px">Prioridade</Cab>
-          <Cab col="peso" w="70px">Peso</Cab>
-          <Cab col="prazo" w="95px">Prazo</Cab>
-          <Cab col="entrega" w="95px">Entrega</Cab>
-          <Cab col="sla" w="110px">SLA</Cab>
-          <Cab col="nota" w="75px">Nota</Cab>
-          <Cab col="responsavel" w="130px">Responsável</Cab>
-          <span style={{ width: '95px', flexShrink: 0, fontWeight: 600 }}>Recorrente</span>
-          <span style={{ width: '70px', flexShrink: 0, fontWeight: 600 }}>Anexo</span>
-        </div>
-        <div className="scroll-box" style={{ maxHeight: '38vh' }}>
-          {tabela.length === 0 ? (
-            <EstadoVazio titulo="Nada no recorte.">Ajuste os filtros acima.</EstadoVazio>
-          ) : tabela.map((d) => {
-            const s = slaDe(d);
-            const nAnexos = contagemAnexos?.get(d.id) ?? 0;
-            return (
-              <div key={d.id} className="linha dash-tab-linha" onClick={() => setDemandaSel(d)}
-                   role="button" tabIndex={0}>
-                <span style={{ width: '300px', flexShrink: 0 }} className="dash-corta" title={d.titulo}>{d.titulo}</span>
-                <span style={{ width: '170px', flexShrink: 0 }} className="dash-corta suave">{d.processo?.nome ?? 'Avulsa'}</span>
-                <span style={{ width: '95px', flexShrink: 0 }}>
-                  <Badge tom={PRIORIDADE[d.prioridade].tom}>{PRIORIDADE[d.prioridade].rotulo}</Badge>
-                </span>
-                <span style={{ width: '70px', flexShrink: 0 }} className="suave"
-                      title={`peso ${d.peso ?? 5} × prioridade × valor × complexidade`}>
-                  {pesoEfetivo(d).toFixed(1)}
-                </span>
-                <span style={{ width: '95px', flexShrink: 0 }} className="suave">{fmtData(d.prazo)}</span>
-                <span style={{ width: '95px', flexShrink: 0 }} className="suave">{d.concluida_em ? fmtData(d.concluida_em) : '—'}</span>
-                <span style={{ width: '110px', flexShrink: 0 }}><Badge tom={s.tom}>{s.rotulo}</Badge></span>
-                <span style={{ width: '75px', flexShrink: 0 }}>
-                  {(() => {
-                    const nd = calcularNota([d]);
-                    return nd.nota === null ? <span className="suave">—</span>
-                      : <Badge tom={faixaNota(nd.nota).tom}>{nd.nota}</Badge>;
-                  })()}
-                </span>
-                <span style={{ width: '130px', flexShrink: 0 }} className="dash-corta suave">{ehSubstituicao(d) ? '🔄 ' : ''}{d.responsavel?.nome ?? '—'}</span>
-                <span style={{ width: '95px', flexShrink: 0 }} className="suave">
-                  {d.recorrencia ? `↻ ${RECORRENCIA_DEMANDA[d.recorrencia].split(' ')[0]}` : '—'}
-                </span>
-                <span style={{ width: '70px', flexShrink: 0 }} className="suave">{nAnexos > 0 ? `📎 ${nAnexos}` : '—'}</span>
-              </div>
-            );
-          })}
-        </div>
-        </div>
+        <div className="dash-tab-wrap">
+          <div style={{ minWidth: 1100 }}>
+            <div className="linha dash-tab-cab">
+              <Cab col="demanda" w="300px">Demanda</Cab>
+              <Cab col="processo" w="170px">Processo</Cab>
+              <Cab col="prioridade" w="95px">Prioridade</Cab>
+              <Cab col="peso" w="70px">Peso</Cab>
+              <Cab col="prazo" w="95px">Prazo</Cab>
+              <Cab col="entrega" w="95px">Entrega</Cab>
+              <Cab col="sla" w="110px">SLA</Cab>
+              <Cab col="nota" w="75px">Nota</Cab>
+              <Cab col="responsavel" w="130px">Responsável</Cab>
+              <span style={{ width: '95px', flexShrink: 0, fontWeight: 600 }}>Recorrente</span>
+              <span style={{ width: '70px', flexShrink: 0, fontWeight: 600 }}>Anexo</span>
+            </div>
+
+            {/* Filtros por coluna, estilo Excel */}
+            <div className="linha dash-tab-filtros">
+              {([['demanda', '300px'], ['processo', '170px'], ['prioridade', '95px'], ['peso', '70px'],
+                 ['prazo', '95px'], ['entrega', '95px'], ['sla', '110px'], ['nota', '75px'],
+                 ['responsavel', '130px'], ['recorrente', '95px']] as [string, string][]).map(([col, w]) => (
+                <input key={col} type="text" placeholder="filtrar…" value={colFiltros[col] ?? ''}
+                       onChange={(e) => setCol(col, e.target.value)}
+                       style={{ width: w, flexShrink: 0, padding: '3px 6px', fontSize: 12, minHeight: 26 }} />
+              ))}
+              <span style={{ width: '70px', flexShrink: 0 }} />
+            </div>
+
+            <div className="dash-tab-corpo">
+              {tabela.length === 0 ? (
+                <EstadoVazio titulo="Nada no recorte.">Ajuste os filtros acima.</EstadoVazio>
+              ) : tabela.map((d) => {
+                const s = slaDe(d);
+                const nAnexos = contagemAnexos?.get(d.id) ?? 0;
+                return (
+                  <div key={d.id} className="linha dash-tab-linha" onClick={() => setDemandaSel(d)}
+                       role="button" tabIndex={0}>
+                    <span style={{ width: '300px', flexShrink: 0 }} className="dash-corta" title={d.titulo}>{d.titulo}</span>
+                    <span style={{ width: '170px', flexShrink: 0 }} className="dash-corta suave">{d.processo?.nome ?? 'Avulsa'}</span>
+                    <span style={{ width: '95px', flexShrink: 0 }}>
+                      <Badge tom={PRIORIDADE[d.prioridade].tom}>{PRIORIDADE[d.prioridade].rotulo}</Badge>
+                    </span>
+                    <span style={{ width: '70px', flexShrink: 0 }} className="suave"
+                          title={`peso ${d.peso ?? 5}, ajustado por prioridade, valor e complexidade`}>
+                      {pesoEfetivo(d).toFixed(1)}
+                    </span>
+                    <span style={{ width: '95px', flexShrink: 0 }} className="suave">{fmtData(d.prazo)}</span>
+                    <span style={{ width: '95px', flexShrink: 0 }} className="suave">{d.concluida_em ? fmtData(d.concluida_em) : '—'}</span>
+                    <span style={{ width: '110px', flexShrink: 0 }}><Badge tom={s.tom}>{s.rotulo}</Badge></span>
+                    <span style={{ width: '75px', flexShrink: 0 }}>
+                      {d.status === 'concluida'
+                        ? <Badge tom={faixaNota(notaDemanda(d)).tom}>{notaDemanda(d)}</Badge>
+                        : <span className="suave">0</span>}
+                    </span>
+                    <span style={{ width: '130px', flexShrink: 0 }} className="dash-corta suave">{ehSubstituicao(d) ? '🔄 ' : ''}{d.responsavel?.nome ?? '—'}</span>
+                    <span style={{ width: '95px', flexShrink: 0 }} className="suave">
+                      {d.recorrencia ? `↻ ${RECORRENCIA_DEMANDA[d.recorrencia].split(' ')[0]}` : '—'}
+                    </span>
+                    <span style={{ width: '70px', flexShrink: 0 }} className="suave">{nAnexos > 0 ? `📎 ${nAnexos}` : '—'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -702,4 +738,38 @@ function PainelNota(props: {
       )}
     </div>
   );
+}
+
+/** Nota individual da entrega (0 quando ainda não concluída). */
+function notaDemanda(d: Demanda): number {
+  if (d.status !== 'concluida') return 0;
+  return calcularNota([d]).nota ?? 0;
+}
+
+/** Exporta o recorte visível para .xlsx */
+async function exportarTabela(linhas: Demanda[], anexos?: Map<string, number>) {
+  const XLSX = await import('xlsx');
+  const dados = linhas.map((d) => ({
+    'Demanda': d.titulo,
+    'Processo': d.processo?.nome ?? 'Avulsa',
+    'Prioridade': PRIORIDADE[d.prioridade].rotulo,
+    'Peso': pesoEfetivo(d),
+    'Peso informado': d.peso ?? '',
+    'Valor': VALOR[d.valor],
+    'Tipo': TIPO_DEMANDA[d.tipo],
+    'Prazo': fmtData(d.prazo),
+    'Entrega': d.concluida_em ? fmtData(d.concluida_em) : '',
+    'SLA': d.status === 'concluida'
+      ? (d.motivo_conclusao ? MOTIVO_CONCLUSAO[d.motivo_conclusao] : '')
+      : (demandaAtrasada(d) ? 'Atrasada' : 'Em dia'),
+    'Nota': notaDemanda(d),
+    'Retrabalho': d.retrabalho,
+    'Responsável': d.responsavel?.nome ?? '',
+    'Recorrente': d.recorrencia ? RECORRENCIA_DEMANDA[d.recorrencia] : 'Não',
+    'Anexos': anexos?.get(d.id) ?? 0,
+    'Status': STATUS_DEMANDA[d.status].rotulo,
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dados), 'Demandas');
+  XLSX.writeFile(wb, `desempenho-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }

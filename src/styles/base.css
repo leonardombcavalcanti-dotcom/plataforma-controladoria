@@ -435,10 +435,14 @@ button.cal-item { font-family: inherit; cursor: pointer; }
 .gantt-corta { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 768px) { .gantt-rotulo { width: 150px; } .gantt-corta { max-width: 90px; } }
 
-/* ---------- tabela analítica com rolagem horizontal (Sprint 23) ---------- */
-.dash-tab-scroll { overflow-x: auto; overflow-y: hidden; }
-.dash-tab { display: block; }
-.dash-tab .dash-tab-cab {
-  position: sticky; top: 0; z-index: 2; background: var(--superficie);
+/* ---------- tabela analítica: UMA rolagem (Sprint 23b) ---------- */
+.dash-tab-wrap { overflow: auto; max-height: 46vh; }
+.dash-tab-wrap .dash-tab-cab {
+  position: sticky; top: 0; z-index: 3; background: var(--superficie);
 }
-.dash-tab .scroll-box { overflow-x: visible; }
+.dash-tab-filtros {
+  position: sticky; top: 34px; z-index: 2; background: var(--superficie);
+  padding: 4px 8px 6px; gap: 0; border-bottom: 1px solid var(--borda);
+}
+.dash-tab-filtros input { margin-right: 0; border-radius: 5px; }
+.dash-tab-corpo { }

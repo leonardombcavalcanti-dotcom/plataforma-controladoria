@@ -22,13 +22,18 @@ export const MULT_COMPLEXIDADE: Record<string, number> = {
   baixa: 0.85, media: 1.0, alta: 1.25, especialista: 1.5,
 };
 
-/** Peso efetivo (criticidade) de uma demanda — a "moeda" do ranking. */
+/**
+ * Peso efetivo (criticidade) — permanece na escala 1–10 do peso informado.
+ * Os multiplicadores de prioridade, valor e complexidade ajustam dentro da
+ * escala (média deles ~1), e o resultado é limitado a 10.
+ */
 export function pesoEfetivo(d: Demanda): number {
   const base = d.peso ?? 5;
   const mp = MULT_PRIORIDADE[d.prioridade] ?? 1;
   const mv = MULT_VALOR[d.valor] ?? 1;
   const mc = d.complexidade ? (MULT_COMPLEXIDADE[d.complexidade] ?? 1) : 1;
-  return Math.round(base * mp * mv * mc * 100) / 100;
+  const fator = (mp + mv + mc) / 3;              // média dos ajustes, não produto
+  return Math.round(Math.min(10, Math.max(1, base * fator)) * 10) / 10;
 }
 
 /** Dias de atraso na entrega (0 se entregou no prazo ou antes). */
