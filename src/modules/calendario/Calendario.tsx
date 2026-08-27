@@ -17,7 +17,7 @@ import { Gantt } from './Gantt';
 
 type Vista = 'meu' | 'equipe' | 'obrigacoes';
 type Modo = 'grade' | 'semanas' | 'meses' | 'kanban' | 'gantt';
-interface Item { d: Demanda; projetada: boolean; data: string }
+interface Item { d: Demanda; projetada: boolean; data: string; respNome?: string; titularNome?: string; substituto?: boolean }
 
 const VISTAS: { chave: Vista; rotulo: string }[] = [
   { chave: 'meu', rotulo: 'Meu' },
@@ -80,7 +80,9 @@ function CartaoCrono(props: { it: Item; onAbrir: () => void }) {
         {it.projetada ? '↻ ' : ''}{d.titulo}
       </strong>
       <div className="mudo" style={{ marginTop: 3 }}>
-        {ehSubstituicao(d) ? '🔄 ' : ''}{d.responsavel?.nome ?? d.criador?.nome ?? '—'}
+        {(it.substituto ?? ehSubstituicao(d)) ? '🔄 ' : ''}
+        {it.respNome ?? d.responsavel?.nome ?? d.criador?.nome ?? '—'}
+        {it.substituto && it.titularNome ? ` (substituindo ${it.titularNome})` : ''}
         {d.processo?.nome ? ` · ${d.processo.nome}` : ''}
       </div>
       <div className="linha" style={{ marginTop: 6 }}>
@@ -156,26 +158,38 @@ export function Calendario() {
     const põe = (dia: string, it: Item) => mapa.set(dia, [...(mapa.get(dia) ?? []), it]);
     const listaAus = ausencias ?? [];
     const meuId = eu?.id ?? '';
+    const nomePorId = new Map((pessoas ?? []).map((p) => [p.id, p.nome]));
+    const enriquecer = (d: Demanda, data: string, projetada: boolean): Item => {
+      const respId = responsavelNaData(d, data, listaAus);
+      const titular = d.substituindo_id ?? d.responsavel_id;
+      const ehSub = !!respId && !!titular && respId !== titular;
+      return {
+        d, projetada, data,
+        respNome: respId ? nomePorId.get(respId) : undefined,
+        titularNome: ehSub && titular ? nomePorId.get(titular) : undefined,
+        substituto: ehSub,
+      };
+    };
     // Na vista "Meu", cada ocorrência entra apenas se EU respondo por ela naquela data
     const meuNaData = (d: Demanda, data: string) =>
       vista !== 'meu' || responsavelNaData(d, data, listaAus) === meuId
       || (d.status === 'solicitada' && d.criador_id === meuId);
 
     for (const d of filtradas) {
-      if (meuNaData(d, d.prazo)) põe(d.prazo, { d, projetada: false, data: d.prazo });
+      if (meuNaData(d, d.prazo)) põe(d.prazo, enriquecer(d, d.prazo, false));
       if (d.recorrencia && !['concluida', 'encerrada'].includes(d.status)
           && (situacoes.size === 0 || situacoes.has('projetada'))) {
         let cur = d.prazo; let guarda = 0;
         while (guarda++ < 500) {
           cur = proximaData(cur, d.recorrencia);
           if (cur > fim) break;
-          if (meuNaData(d, cur)) põe(cur, { d, projetada: true, data: cur });
+          if (meuNaData(d, cur)) põe(cur, enriquecer(d, cur, true));
         }
       }
     }
     return mapa;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtradas, modo, ano, mes, situacoes, ausencias, eu, vista]);
+  }, [filtradas, modo, ano, mes, situacoes, ausencias, eu, vista, pessoas]);
 
   const grade = useMemo(() => {
     const primeiro = new Date(ano, mes, 1);
@@ -464,7 +478,7 @@ export function Calendario() {
                 {col.lista.length === 0 ? (
                   <p className="mudo" style={{ padding: 8 }}>—</p>
                 ) : col.lista.map((d) => (
-                  <CartaoCrono key={d.id} it={{ d, projetada: false, data: d.prazo }} onAbrir={() => abrirDemanda(d)} />
+                  <CartaoCrono key={d.id} it={{ d, projetada: false, data: d.prazo, respNome: d.responsavel?.nome, substituto: ehSubstituicao(d) }} onAbrir={() => abrirDemanda(d)} />
                 ))}
               </div>
             </div>
