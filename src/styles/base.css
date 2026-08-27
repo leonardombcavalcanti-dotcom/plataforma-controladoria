@@ -459,14 +459,57 @@ button.cal-item { font-family: inherit; cursor: pointer; }
 .dash-tabela .dash-corta { max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
 
 /* barras verticais da série temporal */
-.serie-vertical { display: flex; align-items: flex-end; gap: 6px; height: 190px; padding-top: 8px; overflow-x: auto; }
-.serie-col { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 42px; flex: 1; }
-.serie-barra {
-  width: 100%; background: var(--cor-primaria); border-radius: 5px 5px 0 0;
-  transition: height var(--t-drawer); min-height: 2px;
+/* ---- Série temporal (evolução) ---- */
+.serie-box { position: relative; }
+.serie-toggle { display: inline-flex; border: 1px solid var(--borda); border-radius: 8px; overflow: hidden; }
+.serie-toggle button {
+  border: none; background: transparent; color: var(--texto-mudo);
+  font-size: 12px; font-weight: 600; padding: 5px 12px; cursor: pointer;
 }
-.serie-rot { font-size: 10.5px; color: var(--texto-mudo); white-space: nowrap; }
-.serie-val { font-size: 11px; font-weight: 600; }
+.serie-toggle button + button { border-left: 1px solid var(--borda); }
+.serie-toggle button:hover { color: var(--texto); background: var(--fundo-2); }
+.serie-toggle button.ativo { background: var(--cor-primaria); color: #fff; }
+
+.serie-plot { position: relative; padding: 20px 0 0 40px; margin-top: 10px; }
+.serie-grade { position: absolute; left: 40px; right: 0; bottom: 40px; top: 20px; pointer-events: none; }
+.serie-linha { position: absolute; left: 0; right: 0; border-top: 1px solid var(--borda); opacity: .55; }
+.serie-linha span {
+  position: absolute; left: -38px; top: -7px; width: 34px; text-align: right;
+  font-size: 10px; color: var(--texto-mudo); font-variant-numeric: tabular-nums;
+}
+.serie-media { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--cor-atencao); opacity: .9; }
+.serie-media span {
+  position: absolute; right: 2px; top: -14px; font-size: 10px; font-weight: 600;
+  color: var(--cor-atencao); background: var(--fundo-1); padding: 0 4px; border-radius: 4px;
+}
+
+.serie-barras {
+  position: relative; display: flex; align-items: flex-end; gap: 10px;
+  padding-bottom: 4px; overflow-x: auto; overflow-y: hidden;
+}
+.serie-col {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  min-width: 46px; flex: 1; border: none; background: none; padding: 0;
+  cursor: pointer; transition: opacity .15s ease;
+}
+.serie-col.apagada { opacity: .3; }
+.serie-col.apagada:hover { opacity: .6; }
+.serie-barra {
+  width: 100%; max-width: 54px; border-radius: 6px 6px 3px 3px;
+  background: var(--cor-primaria);
+  box-shadow: inset 0 -30px 45px -26px rgba(0, 0, 0, .45);
+  transition: filter .15s ease, background .15s ease;
+}
+.serie-col:hover .serie-barra { filter: brightness(1.12); }
+.serie-col.sel .serie-barra {
+  background: var(--cor-saudavel);
+  box-shadow: inset 0 -30px 45px -26px rgba(0, 0, 0, .45), 0 0 0 2px var(--fundo-1), 0 0 0 3px var(--cor-saudavel);
+}
+.serie-val { font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.serie-rot { font-size: 11px; color: var(--texto); white-space: nowrap; }
+.serie-sub { font-size: 10px; color: var(--texto-mudo); white-space: nowrap; margin-top: -3px; }
+.serie-col.sel .serie-rot, .serie-col.sel .serie-val { color: var(--cor-saudavel); }
+.serie-dica { font-size: 11px; margin-top: 6px; }
 
 /* ---- Ajuda da nota (?) e memória de cálculo ---- */
 .btn-ajuda {

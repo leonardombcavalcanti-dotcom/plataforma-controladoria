@@ -31,6 +31,40 @@ const METRICAS: Record<Metrica, string> = {
 const estrelas = (n: number | null) => (n === null ? '—' : `★ ${n.toFixed(1)}`);
 const isoDia = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+type Escala = 'dia' | 'semana' | 'mes';
+const DIA_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const MES_ABR = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+/** Data de competência da demanda: entrega quando finalizada, prazo quando ativa. */
+const dataCompetencia = (d: Demanda): string =>
+  (d.status === 'concluida' || d.status === 'encerrada' ? (d.concluida_em ?? d.prazo) : d.prazo).slice(0, 10);
+
+/** Segunda-feira da semana de uma data ISO. */
+const segundaDe = (iso: string): string => {
+  const [y, m, dd] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, dd));
+  dt.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7));
+  return dt.toISOString().slice(0, 10);
+};
+
+const chaveEscala = (iso: string, e: Escala): string =>
+  e === 'mes' ? iso.slice(0, 7) : e === 'dia' ? iso : segundaDe(iso);
+
+/** Rótulo em duas linhas: principal + apoio (dia da semana, ano ou fim da semana). */
+function rotuloEscala(chave: string, e: Escala): { p: string; s: string } {
+  if (e === 'mes') {
+    const [y, m] = chave.split('-').map(Number);
+    return { p: MES_ABR[m - 1], s: String(y) };
+  }
+  const [y, m, d] = chave.split('-').map(Number);
+  if (e === 'dia') {
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return { p: `${d}/${m}`, s: DIA_SEM[dt.getUTCDay()] };
+  }
+  const fim = new Date(Date.UTC(y, m - 1, d + 6));
+  return { p: `${d}/${m}`, s: `a ${fim.getUTCDate()}/${fim.getUTCMonth() + 1}` };
+}
+
 /** Dias vencidos de uma demanda ainda não entregue (0 se está em dia). */
 const diasVencidos = (d: Demanda): number => {
   const hoje = new Date(new Date().toISOString().slice(0, 10) + 'T12:00:00Z').getTime();
@@ -130,13 +164,13 @@ export function Desempenho() {
   const [processoF, setProcessoF] = useState<string[]>([]);
   const [tipoF, setTipoF] = useState<string[]>([]);
   const [metrica, setMetrica] = useState<Metrica>('qtd');
-  const [mesSel, setMesSel] = useState<string | null>(null);
+  const [periodoSel, setPeriodoSel] = useState<{ escala: Escala; chave: string } | null>(null);
   const [recF, setRecF] = useState('');
   const [situacaoSel, setSituacaoSel] = useState<'concluida' | 'atrasada' | 'andamento' | null>(null);
   const [ordem, setOrdem] = useState<{ col: string; asc: boolean }>({ col: 'prazo', asc: false });
   const [demandaSel, setDemandaSel] = useState<Demanda | null>(null);
   const [colFiltros, setColFiltros] = useState<Record<string, string>>({});
-  const [escala, setEscala] = useState<'dia' | 'semana' | 'mes'>('mes');
+  const [escala, setEscala] = useState<Escala>('mes');
   const setCol = (k: string, v: string) => setColFiltros((f) => ({ ...f, [k]: v }));
 
   const pessoaEfetiva = ehGestor ? pessoaF : (eu ? [eu.id] : []);
@@ -180,13 +214,9 @@ export function Desempenho() {
   // Recorte final (com o mês selecionado): competência = conclusão (finalizadas) ou prazo (ativas)
   const recorte = useMemo(() => {
     let lista = base;
-    if (mesSel) {
-      lista = lista.filter((d) => {
-        const chave = d.status === 'concluida' || d.status === 'encerrada'
-          ? (d.concluida_em ?? d.prazo).slice(0, 7)
-          : d.prazo.slice(0, 7);
-        return chave === mesSel;
-      });
+    if (periodoSel) {
+      lista = lista.filter((d) =>
+        chaveEscala(dataCompetencia(d), periodoSel.escala) === periodoSel.chave);
     }
     if (situacaoSel) {
       lista = lista.filter((d) => {
@@ -197,20 +227,17 @@ export function Desempenho() {
       });
     }
     return lista;
-  }, [base, mesSel, situacaoSel]);
+  }, [base, periodoSel, situacaoSel]);
 
   // Pizza: composição por situação (do recorte SEM o corte de situação, para navegar)
   const pizza = useMemo(() => {
-    const lista = !mesSel ? base : base.filter((d) => {
-      const chave = d.status === 'concluida' || d.status === 'encerrada'
-        ? (d.concluida_em ?? d.prazo).slice(0, 7) : d.prazo.slice(0, 7);
-      return chave === mesSel;
-    });
+    const lista = !periodoSel ? base : base.filter((d) =>
+      chaveEscala(dataCompetencia(d), periodoSel.escala) === periodoSel.chave);
     const conc = lista.filter((d) => ['concluida', 'encerrada'].includes(d.status)).length;
     const atra = lista.filter((d) => !['concluida', 'encerrada'].includes(d.status) && demandaAtrasada(d)).length;
     const anda = lista.length - conc - atra;
     return { conc, atra, anda, total: lista.length };
-  }, [base, mesSel]);
+  }, [base, periodoSel]);
 
   const concluidas = useMemo(() => recorte.filter((d) => d.status === 'concluida'), [recorte]);
 
@@ -264,32 +291,25 @@ export function Desempenho() {
       .slice(0, 25);
   }, [concluidas, metrica]);
 
-  // Série temporal na escala escolhida (dia/semana/mês)
+  // Série temporal na escala escolhida — sempre sobre a BASE, para que
+  // selecionar um período não faça o próprio gráfico sumir (cross-filter).
   const serie = useMemo(() => {
-    const chaveDe = (isoData: string): { k: string; rot: string } => {
-      const [y, m, dd] = isoData.slice(0, 10).split('-').map(Number);
-      if (escala === 'mes') return { k: `${y}-${String(m).padStart(2, '0')}`,
-        rot: `${['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][m - 1]}/${String(y).slice(2)}` };
-      if (escala === 'dia') return { k: isoData.slice(0, 10), rot: `${dd}/${m}` };
-      const dt = new Date(Date.UTC(y, m - 1, dd));
-      dt.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7));
-      const ki = dt.toISOString().slice(0, 10);
-      return { k: ki, rot: `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}` };
-    };
-    const grupos = new Map<string, { rot: string; lista: Demanda[] }>();
-    for (const d of concluidas) {
-      if (!d.concluida_em) continue;
-      const { k, rot } = chaveDe(d.concluida_em);
-      const g = grupos.get(k) ?? { rot, lista: [] };
-      g.lista.push(d);
-      grupos.set(k, g);
+    const grupos = new Map<string, Demanda[]>();
+    for (const d of base) {
+      if (d.status !== 'concluida' || !d.concluida_em) continue;
+      const k = chaveEscala(d.concluida_em.slice(0, 10), escala);
+      grupos.set(k, [...(grupos.get(k) ?? []), d]);
     }
-    const limite = escala === 'dia' ? 30 : escala === 'semana' ? 16 : 12;
+    const limite = escala === 'dia' ? 45 : escala === 'semana' ? 20 : 14;
     return [...grupos.entries()]
       .sort((a, b) => (a[0] < b[0] ? -1 : 1))
       .slice(-limite)
-      .map(([k, g]) => ({ id: k, rotulo: g.rot, ...metricaDe(g.lista, metrica) }));
-  }, [concluidas, metrica, escala]);
+      .map(([k, lista]) => ({
+        id: k, qtd: lista.length,
+        ...rotuloEscala(k, escala),
+        ...metricaDe(lista, metrica),
+      }));
+  }, [base, metrica, escala]);
 
   const porProcesso = useMemo(() => {
     const grupos = new Map<string, { rotulo: string; lista: Demanda[] }>();
@@ -367,12 +387,12 @@ export function Desempenho() {
   if (isLoading || !eu) return <Carregando linhas={6} />;
 
   const limparTudo = () => {
-    setAreaF([]); setPessoaF([]); setProcessoF([]); setTipoF([]); setMesSel(null);
+    setAreaF([]); setPessoaF([]); setProcessoF([]); setTipoF([]); setPeriodoSel(null);
     setRecF(''); setSituacaoSel(null); setPeriodo('90'); setDe(''); setAte('');
   };
   const ativosFiltro = areaF.length + pessoaF.length + processoF.length + tipoF.length
     + (recF ? 1 : 0) + (periodo !== '90' ? 1 : 0);
-  const temFiltro = areaF.length + pessoaF.length + processoF.length + tipoF.length > 0 || mesSel || recF || situacaoSel;
+  const temFiltro = areaF.length + pessoaF.length + processoF.length + tipoF.length > 0 || periodoSel || recF || situacaoSel;
 
   const Cab = (p: { col: string; children: ReactNode; w?: string }) => (
     <span style={{ width: p.w, flexShrink: 0, cursor: 'pointer', fontWeight: 600 }}
@@ -434,8 +454,12 @@ export function Desempenho() {
           </CampoFiltro>
         </PainelFiltros>
         {!ehGestor && <Badge tom="neutro">Meus números</Badge>}
-        {mesSel && (
-          <Badge tom="info">📅 {fmtCompetencia(mesSel)} ✕</Badge>
+        {periodoSel && (
+          <button className="btn mini" onClick={() => setPeriodoSel(null)}>
+            📅 {periodoSel.escala === 'mes' ? 'Mês' : periodoSel.escala === 'semana' ? 'Semana de' : ''}{' '}
+            {rotuloEscala(periodoSel.chave, periodoSel.escala).p}
+            {periodoSel.escala !== 'dia' ? ` ${rotuloEscala(periodoSel.chave, periodoSel.escala).s}` : ''} ✕
+          </button>
         )}
         {temFiltro && (
           <button className="btn mini" onClick={limparTudo}>Limpar filtros</button>
@@ -488,38 +512,13 @@ export function Desempenho() {
           onClique={(id) => setTipoF(tipoF.length === 1 && tipoF[0] === id ? [] : [id])} />
       </div>
 
-      {/* ===== Evolução no tempo (barras verticais) ===== */}
-      <div className="cartao secao">
-        <div className="linha" style={{ marginBottom: 4, flexWrap: 'wrap' }}>
-          <h3 style={{ margin: 0 }}>Evolução — {METRICAS[metrica]}</h3>
-          <div className="espaco" />
-          {([['dia', 'Diário'], ['semana', 'Semanal'], ['mes', 'Mensal']] as ['dia' | 'semana' | 'mes', string][]).map(([k, r]) => (
-            <button key={k} className={`btn mini ${escala === k ? 'primario' : ''}`}
-                    onClick={() => setEscala(k)}>{r}</button>
-          ))}
-        </div>
-        {serie.length === 0 ? (
-          <p className="mudo">Sem entregas no recorte.</p>
-        ) : (
-          <div className="serie-vertical">
-            {serie.map((s) => {
-              const max = Math.max(1, ...serie.map((x) => x.valor ?? 0));
-              const alt = Math.round(((s.valor ?? 0) / max) * 140);
-              const ativo = mesSel === s.id;
-              return (
-                <div key={s.id} className="serie-col" title={`${s.rotulo}: ${s.display}`}
-                     onClick={() => escala === 'mes' && setMesSel(ativo ? null : s.id)}
-                     style={{ cursor: escala === 'mes' ? 'pointer' : 'default' }}>
-                  <span className="serie-val">{s.display}</span>
-                  <div className="serie-barra"
-                       style={{ height: alt, background: ativo ? 'var(--cor-saudavel)' : undefined }} />
-                  <span className="serie-rot">{s.rotulo}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {/* ===== Evolução no tempo ===== */}
+      <SerieTemporal titulo={`Evolução — ${METRICAS[metrica]}`} serie={serie}
+        escala={escala} onEscala={setEscala}
+        ativo={periodoSel && periodoSel.escala === escala ? periodoSel.chave : null}
+        onClique={(chave) => setPeriodoSel(
+          periodoSel && periodoSel.escala === escala && periodoSel.chave === chave
+            ? null : { escala, chave })} />
 
       {/* ===== Tabela analítica ===== */}
       <div className="cartao">
@@ -650,6 +649,79 @@ export function Desempenho() {
       {demandaSel && (
         <ResumoDemanda d={demandaSel} onFechar={() => setDemandaSel(null)}
           onAbrirCompleta={() => { const id = demandaSel.id; setDemandaSel(null); nav(`/demandas/inbox/${id}`); }} />
+      )}
+    </div>
+  );
+}
+
+interface PontoSerie { id: string; p: string; s: string; qtd: number; valor: number | null; display: string }
+
+function SerieTemporal(props: {
+  titulo: string; serie: PontoSerie[]; escala: Escala;
+  onEscala: (e: Escala) => void; ativo: string | null; onClique: (chave: string) => void;
+}) {
+  const { serie } = props;
+  const valores = serie.map((s) => s.valor ?? 0);
+  const max = Math.max(1, ...valores);
+  const media = valores.length ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
+  const ALTURA = 190;
+  const escalaY = (v: number) => Math.max(2, Math.round((v / max) * ALTURA));
+
+  return (
+    <div className="cartao secao serie-box">
+      <div className="linha" style={{ marginBottom: 2, flexWrap: 'wrap' }}>
+        <h3 style={{ margin: 0 }}>{props.titulo}</h3>
+        {props.ativo && <Badge tom="info">período selecionado</Badge>}
+        <div className="espaco" />
+        <div className="serie-toggle">
+          {(['dia', 'semana', 'mes'] as Escala[]).map((k) => (
+            <button key={k} className={props.escala === k ? 'ativo' : ''}
+                    onClick={() => props.onEscala(k)}>
+              {k === 'dia' ? 'Diário' : k === 'semana' ? 'Semanal' : 'Mensal'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {serie.length === 0 ? (
+        <p className="mudo">Sem entregas concluídas no recorte.</p>
+      ) : (
+        <>
+          <div className="serie-plot" style={{ ['--h' as string]: `${ALTURA}px` }}>
+            <div className="serie-grade">
+              {[1, 0.75, 0.5, 0.25, 0].map((f) => (
+                <div key={f} className="serie-linha" style={{ bottom: `${f * ALTURA}px` }}>
+                  <span>{Math.round(max * f)}</span>
+                </div>
+              ))}
+              {media > 0 && (
+                <div className="serie-media" style={{ bottom: `${escalaY(media)}px` }}>
+                  <span>média {Math.round(media * 10) / 10}</span>
+                </div>
+              )}
+            </div>
+            <div className="serie-barras">
+              {serie.map((s) => {
+                const sel = props.ativo === s.id;
+                const apagada = props.ativo !== null && !sel;
+                return (
+                  <button key={s.id} type="button"
+                          className={`serie-col${sel ? ' sel' : ''}${apagada ? ' apagada' : ''}`}
+                          title={`${s.p} ${s.s} · ${s.display} · ${s.qtd} entrega(s)`}
+                          onClick={() => props.onClique(s.id)}>
+                    <span className="serie-val">{s.display}</span>
+                    <span className="serie-barra" style={{ height: escalaY(s.valor ?? 0) }} />
+                    <span className="serie-rot">{s.p}</span>
+                    <span className="serie-sub">{s.s}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <p className="mudo serie-dica">
+            Clique em uma barra para filtrar a tela inteira por aquele período.
+          </p>
+        </>
       )}
     </div>
   );
