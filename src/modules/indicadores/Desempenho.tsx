@@ -127,6 +127,7 @@ export function Desempenho() {
   const [ordem, setOrdem] = useState<{ col: string; asc: boolean }>({ col: 'prazo', asc: false });
   const [demandaSel, setDemandaSel] = useState<Demanda | null>(null);
   const [colFiltros, setColFiltros] = useState<Record<string, string>>({});
+  const [escala, setEscala] = useState<'dia' | 'semana' | 'mes'>('mes');
   const setCol = (k: string, v: string) => setColFiltros((f) => ({ ...f, [k]: v }));
 
   const pessoaEfetiva = ehGestor ? pessoaF : (eu ? [eu.id] : []);
@@ -238,18 +239,45 @@ export function Desempenho() {
     return Math.max(1, ...porPessoa.values());
   }, [concluidas]);
 
-  const porMes = useMemo(() => {
-    const linhas: { id: string; rotulo: string; valor: number | null; display: string }[] = [];
-    const agora = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
-      const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const doMes = base.filter((x) => x.status === 'concluida' && x.concluida_em?.startsWith(chave));
-      if (doMes.length === 0 && i > 5) continue;
-      linhas.push({ id: chave, rotulo: fmtCompetencia(chave), ...metricaDe(doMes, metrica) });
+  const porDemanda = useMemo(() => {
+    const base = (t: string) => t.replace(/ — \d{4}-\d{2}$/, '');
+    const grupos = new Map<string, Demanda[]>();
+    for (const d of concluidas) {
+      const k = base(d.titulo);
+      grupos.set(k, [...(grupos.get(k) ?? []), d]);
     }
-    return linhas;
-  }, [base, metrica]);
+    return [...grupos.entries()]
+      .map(([rotulo, lista]) => ({ id: rotulo, rotulo, ...metricaDe(lista, metrica) }))
+      .sort((a, b) => (b.valor ?? 0) - (a.valor ?? 0))
+      .slice(0, 25);
+  }, [concluidas, metrica]);
+
+  // Série temporal na escala escolhida (dia/semana/mês)
+  const serie = useMemo(() => {
+    const chaveDe = (isoData: string): { k: string; rot: string } => {
+      const [y, m, dd] = isoData.slice(0, 10).split('-').map(Number);
+      if (escala === 'mes') return { k: `${y}-${String(m).padStart(2, '0')}`,
+        rot: `${['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][m - 1]}/${String(y).slice(2)}` };
+      if (escala === 'dia') return { k: isoData.slice(0, 10), rot: `${dd}/${m}` };
+      const dt = new Date(Date.UTC(y, m - 1, dd));
+      dt.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7));
+      const ki = dt.toISOString().slice(0, 10);
+      return { k: ki, rot: `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}` };
+    };
+    const grupos = new Map<string, { rot: string; lista: Demanda[] }>();
+    for (const d of concluidas) {
+      if (!d.concluida_em) continue;
+      const { k, rot } = chaveDe(d.concluida_em);
+      const g = grupos.get(k) ?? { rot, lista: [] };
+      g.lista.push(d);
+      grupos.set(k, g);
+    }
+    const limite = escala === 'dia' ? 30 : escala === 'semana' ? 16 : 12;
+    return [...grupos.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .slice(-limite)
+      .map(([k, g]) => ({ id: k, rotulo: g.rot, ...metricaDe(g.lista, metrica) }));
+  }, [concluidas, metrica, escala]);
 
   const porProcesso = useMemo(() => {
     const grupos = new Map<string, { rotulo: string; lista: Demanda[] }>();
@@ -433,15 +461,48 @@ export function Desempenho() {
 
       {/* ===== Gráficos com cross-filter ===== */}
       <div className="dash-graficos secao">
-        <GraficoBarras titulo={`Por mês — ${METRICAS[metrica]}`} linhas={porMes}
-          ativoId={mesSel} cor="var(--cor-primaria)"
-          onClique={(id) => setMesSel(mesSel === id ? null : id)} />
+        <GraficoBarras titulo={`Por demanda — ${METRICAS[metrica]}`} linhas={porDemanda}
+          ativoId={null} cor="var(--cor-primaria)"
+          onClique={(id) => setCol('demanda', colFiltros['demanda'] === id ? '' : id)} />
         <GraficoBarras titulo={`Por processo — ${METRICAS[metrica]}`} linhas={porProcesso}
           ativoId={processoF.length === 1 ? processoF[0] : null} cor="var(--cor-saudavel)"
           onClique={(id) => setProcessoF(processoF.length === 1 && processoF[0] === id ? [] : [id])} />
         <GraficoBarras titulo={`Por tipo — ${METRICAS[metrica]}`} linhas={porTipo}
           ativoId={tipoF.length === 1 ? tipoF[0] : null} cor="var(--cor-atencao)"
           onClique={(id) => setTipoF(tipoF.length === 1 && tipoF[0] === id ? [] : [id])} />
+      </div>
+
+      {/* ===== Evolução no tempo (barras verticais) ===== */}
+      <div className="cartao secao">
+        <div className="linha" style={{ marginBottom: 4, flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0 }}>Evolução — {METRICAS[metrica]}</h3>
+          <div className="espaco" />
+          {([['dia', 'Diário'], ['semana', 'Semanal'], ['mes', 'Mensal']] as ['dia' | 'semana' | 'mes', string][]).map(([k, r]) => (
+            <button key={k} className={`btn mini ${escala === k ? 'primario' : ''}`}
+                    onClick={() => setEscala(k)}>{r}</button>
+          ))}
+        </div>
+        {serie.length === 0 ? (
+          <p className="mudo">Sem entregas no recorte.</p>
+        ) : (
+          <div className="serie-vertical">
+            {serie.map((s) => {
+              const max = Math.max(1, ...serie.map((x) => x.valor ?? 0));
+              const alt = Math.round(((s.valor ?? 0) / max) * 140);
+              const ativo = mesSel === s.id;
+              return (
+                <div key={s.id} className="serie-col" title={`${s.rotulo}: ${s.display}`}
+                     onClick={() => escala === 'mes' && setMesSel(ativo ? null : s.id)}
+                     style={{ cursor: escala === 'mes' ? 'pointer' : 'default' }}>
+                  <span className="serie-val">{s.display}</span>
+                  <div className="serie-barra"
+                       style={{ height: alt, background: ativo ? 'var(--cor-saudavel)' : undefined }} />
+                  <span className="serie-rot">{s.rotulo}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ===== Tabela analítica ===== */}
@@ -458,69 +519,114 @@ export function Desempenho() {
           </button>
         </div>
         <div className="dash-tab-wrap">
-          <div style={{ minWidth: 1100 }}>
-            <div className="linha dash-tab-cab">
-              <Cab col="demanda" w="300px">Demanda</Cab>
-              <Cab col="processo" w="170px">Processo</Cab>
-              <Cab col="prioridade" w="95px">Prioridade</Cab>
-              <Cab col="peso" w="70px">Peso</Cab>
-              <Cab col="prazo" w="95px">Prazo</Cab>
-              <Cab col="entrega" w="95px">Entrega</Cab>
-              <Cab col="sla" w="110px">SLA</Cab>
-              <Cab col="nota" w="75px">Nota</Cab>
-              <Cab col="responsavel" w="130px">Responsável</Cab>
-              <span style={{ width: '95px', flexShrink: 0, fontWeight: 600 }}>Recorrente</span>
-              <span style={{ width: '70px', flexShrink: 0, fontWeight: 600 }}>Anexo</span>
-            </div>
-
-            {/* Filtros por coluna, estilo Excel */}
-            <div className="linha dash-tab-filtros">
-              {([['demanda', '300px'], ['processo', '170px'], ['prioridade', '95px'], ['peso', '70px'],
-                 ['prazo', '95px'], ['entrega', '95px'], ['sla', '110px'], ['nota', '75px'],
-                 ['responsavel', '130px'], ['recorrente', '95px']] as [string, string][]).map(([col, w]) => (
-                <input key={col} type="text" placeholder="filtrar…" value={colFiltros[col] ?? ''}
-                       onChange={(e) => setCol(col, e.target.value)}
-                       style={{ width: w, flexShrink: 0, padding: '3px 6px', fontSize: 12, minHeight: 26 }} />
-              ))}
-              <span style={{ width: '70px', flexShrink: 0 }} />
-            </div>
-
-            <div className="dash-tab-corpo">
-              {tabela.length === 0 ? (
-                <EstadoVazio titulo="Nada no recorte.">Ajuste os filtros acima.</EstadoVazio>
-              ) : tabela.map((d) => {
+          <table className="dash-tabela">
+            <thead>
+              <tr className="dash-th">
+                <th style={{ width: 300 }} onClick={() => setOrdem((o) => ({ col: 'demanda', asc: o.col === 'demanda' ? !o.asc : true }))}>
+                  Demanda{ordem.col === 'demanda' ? (ordem.asc ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th style={{ width: 170 }} onClick={() => setOrdem((o) => ({ col: 'processo', asc: o.col === 'processo' ? !o.asc : true }))}>
+                  Processo{ordem.col === 'processo' ? (ordem.asc ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th style={{ width: 95 }} onClick={() => setOrdem((o) => ({ col: 'prioridade', asc: o.col === 'prioridade' ? !o.asc : true }))}>
+                  Prioridade{ordem.col === 'prioridade' ? (ordem.asc ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th style={{ width: 70 }} onClick={() => setOrdem((o) => ({ col: 'peso', asc: o.col === 'peso' ? !o.asc : true }))}>
+                  Peso{ordem.col === 'peso' ? (ordem.asc ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th style={{ width: 95 }} onClick={() => setOrdem((o) => ({ col: 'prazo', asc: o.col === 'prazo' ? !o.asc : true }))}>
+                  Prazo{ordem.col === 'prazo' ? (ordem.asc ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th style={{ width: 95 }} onClick={() => setOrdem((o) => ({ col: 'entrega', asc: o.col === 'entrega' ? !o.asc : true }))}>
+                  Entrega{ordem.col === 'entrega' ? (ordem.asc ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th style={{ width: 110 }} onClick={() => setOrdem((o) => ({ col: 'sla', asc: o.col === 'sla' ? !o.asc : true }))}>
+                  SLA{ordem.col === 'sla' ? (ordem.asc ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th style={{ width: 75 }} onClick={() => setOrdem((o) => ({ col: 'nota', asc: o.col === 'nota' ? !o.asc : true }))}>
+                  Nota{ordem.col === 'nota' ? (ordem.asc ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th style={{ width: 130 }} onClick={() => setOrdem((o) => ({ col: 'responsavel', asc: o.col === 'responsavel' ? !o.asc : true }))}>
+                  Responsável{ordem.col === 'responsavel' ? (ordem.asc ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th style={{ width: 95 }} onClick={() => setOrdem((o) => ({ col: 'recorrente', asc: o.col === 'recorrente' ? !o.asc : true }))}>
+                  Recorrente{ordem.col === 'recorrente' ? (ordem.asc ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th style={{ width: 70 }}>Anexo</th>
+              </tr>
+              <tr className="dash-tr-filtro">
+                <th style={{ width: 300 }}>
+                  <input type="text" placeholder="filtrar…" value={colFiltros['demanda'] ?? ''}
+                         onChange={(e) => setCol('demanda', e.target.value)} />
+                </th>
+                <th style={{ width: 170 }}>
+                  <input type="text" placeholder="filtrar…" value={colFiltros['processo'] ?? ''}
+                         onChange={(e) => setCol('processo', e.target.value)} />
+                </th>
+                <th style={{ width: 95 }}>
+                  <input type="text" placeholder="filtrar…" value={colFiltros['prioridade'] ?? ''}
+                         onChange={(e) => setCol('prioridade', e.target.value)} />
+                </th>
+                <th style={{ width: 70 }}>
+                  <input type="text" placeholder="filtrar…" value={colFiltros['peso'] ?? ''}
+                         onChange={(e) => setCol('peso', e.target.value)} />
+                </th>
+                <th style={{ width: 95 }}>
+                  <input type="text" placeholder="filtrar…" value={colFiltros['prazo'] ?? ''}
+                         onChange={(e) => setCol('prazo', e.target.value)} />
+                </th>
+                <th style={{ width: 95 }}>
+                  <input type="text" placeholder="filtrar…" value={colFiltros['entrega'] ?? ''}
+                         onChange={(e) => setCol('entrega', e.target.value)} />
+                </th>
+                <th style={{ width: 110 }}>
+                  <input type="text" placeholder="filtrar…" value={colFiltros['sla'] ?? ''}
+                         onChange={(e) => setCol('sla', e.target.value)} />
+                </th>
+                <th style={{ width: 75 }}>
+                  <input type="text" placeholder="filtrar…" value={colFiltros['nota'] ?? ''}
+                         onChange={(e) => setCol('nota', e.target.value)} />
+                </th>
+                <th style={{ width: 130 }}>
+                  <input type="text" placeholder="filtrar…" value={colFiltros['responsavel'] ?? ''}
+                         onChange={(e) => setCol('responsavel', e.target.value)} />
+                </th>
+                <th style={{ width: 95 }}>
+                  <input type="text" placeholder="filtrar…" value={colFiltros['recorrente'] ?? ''}
+                         onChange={(e) => setCol('recorrente', e.target.value)} />
+                </th>
+                <th style={{ width: 70 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {tabela.map((d) => {
                 const s = slaDe(d);
                 const nAnexos = contagemAnexos?.get(d.id) ?? 0;
                 return (
-                  <div key={d.id} className="linha dash-tab-linha" onClick={() => setDemandaSel(d)}
-                       role="button" tabIndex={0}>
-                    <span style={{ width: '300px', flexShrink: 0 }} className="dash-corta" title={d.titulo}>{d.titulo}</span>
-                    <span style={{ width: '170px', flexShrink: 0 }} className="dash-corta suave">{d.processo?.nome ?? 'Avulsa'}</span>
-                    <span style={{ width: '95px', flexShrink: 0 }}>
-                      <Badge tom={PRIORIDADE[d.prioridade].tom}>{PRIORIDADE[d.prioridade].rotulo}</Badge>
-                    </span>
-                    <span style={{ width: '70px', flexShrink: 0 }} className="suave"
-                          title={`peso ${d.peso ?? 5}, ajustado por prioridade, valor e complexidade`}>
+                  <tr key={d.id} onClick={() => setDemandaSel(d)}>
+                    <td className="dash-corta" title={d.titulo}>{d.titulo}</td>
+                    <td className="dash-corta suave">{d.processo?.nome ?? 'Avulsa'}</td>
+                    <td><Badge tom={PRIORIDADE[d.prioridade].tom}>{PRIORIDADE[d.prioridade].rotulo}</Badge></td>
+                    <td className="suave" title={`peso ${d.peso ?? 5}, ajustado por prioridade, valor e complexidade`}>
                       {pesoEfetivo(d).toFixed(1)}
-                    </span>
-                    <span style={{ width: '95px', flexShrink: 0 }} className="suave">{fmtData(d.prazo)}</span>
-                    <span style={{ width: '95px', flexShrink: 0 }} className="suave">{d.concluida_em ? fmtData(d.concluida_em) : '—'}</span>
-                    <span style={{ width: '110px', flexShrink: 0 }}><Badge tom={s.tom}>{s.rotulo}</Badge></span>
-                    <span style={{ width: '75px', flexShrink: 0 }}>
+                    </td>
+                    <td className="suave">{fmtData(d.prazo)}</td>
+                    <td className="suave">{d.concluida_em ? fmtData(d.concluida_em) : '—'}</td>
+                    <td><Badge tom={s.tom}>{s.rotulo}</Badge></td>
+                    <td>
                       {d.status === 'concluida'
                         ? <Badge tom={faixaNota(notaDemanda(d)).tom}>{notaDemanda(d)}</Badge>
                         : <span className="suave">0</span>}
-                    </span>
-                    <span style={{ width: '130px', flexShrink: 0 }} className="dash-corta suave">{ehSubstituicao(d) ? '🔄 ' : ''}{d.responsavel?.nome ?? '—'}</span>
-                    <span style={{ width: '95px', flexShrink: 0 }} className="suave">
-                      {d.recorrencia ? `↻ ${RECORRENCIA_DEMANDA[d.recorrencia].split(' ')[0]}` : '—'}
-                    </span>
-                    <span style={{ width: '70px', flexShrink: 0 }} className="suave">{nAnexos > 0 ? `📎 ${nAnexos}` : '—'}</span>
-                  </div>
+                    </td>
+                    <td className="dash-corta suave">{ehSubstituicao(d) ? '🔄 ' : ''}{d.responsavel?.nome ?? '—'}</td>
+                    <td className="suave">{d.recorrencia ? `↻ ${RECORRENCIA_DEMANDA[d.recorrencia].split(' ')[0]}` : '—'}</td>
+                    <td className="suave">{nAnexos > 0 ? `📎 ${nAnexos}` : '—'}</td>
+                  </tr>
                 );
               })}
-            </div>
-          </div>
+            </tbody>
+          </table>
+          {tabela.length === 0 && <EstadoVazio titulo="Nada no recorte.">Ajuste os filtros acima.</EstadoVazio>}
         </div>
       </div>
 

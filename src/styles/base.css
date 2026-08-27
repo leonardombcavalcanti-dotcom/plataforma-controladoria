@@ -435,14 +435,35 @@ button.cal-item { font-family: inherit; cursor: pointer; }
 .gantt-corta { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 768px) { .gantt-rotulo { width: 150px; } .gantt-corta { max-width: 90px; } }
 
-/* ---------- tabela analítica: UMA rolagem (Sprint 23b) ---------- */
+
+/* ---------- tabela analítica (Sprint 23c) — <table> com rolagem única ---------- */
 .dash-tab-wrap { overflow: auto; max-height: 46vh; }
-.dash-tab-wrap .dash-tab-cab {
-  position: sticky; top: 0; z-index: 3; background: var(--superficie);
+.dash-tabela { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; }
+.dash-tabela th, .dash-tabela td {
+  padding: 7px 10px; text-align: left; vertical-align: middle;
+  border-bottom: 1px solid var(--borda); white-space: nowrap;
 }
-.dash-tab-filtros {
-  position: sticky; top: 34px; z-index: 2; background: var(--superficie);
-  padding: 4px 8px 6px; gap: 0; border-bottom: 1px solid var(--borda);
+.dash-tabela thead th { background: var(--superficie); }
+.dash-tabela thead tr.dash-th th {
+  position: sticky; top: 0; z-index: 3; cursor: pointer; user-select: none;
+  font-size: 12px; color: var(--texto-suave); border-bottom: 2px solid var(--borda);
 }
-.dash-tab-filtros input { margin-right: 0; border-radius: 5px; }
-.dash-tab-corpo { }
+.dash-tabela thead tr.dash-tr-filtro th {
+  position: sticky; top: 33px; z-index: 2; padding: 4px 6px;
+}
+.dash-tabela thead tr.dash-tr-filtro input {
+  width: 100%; padding: 3px 6px; font-size: 12px; min-height: 26px; border-radius: 5px;
+}
+.dash-tabela tbody tr { cursor: pointer; }
+.dash-tabela tbody tr:hover td { background: var(--cor-info-suave); }
+.dash-tabela .dash-corta { max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
+
+/* barras verticais da série temporal */
+.serie-vertical { display: flex; align-items: flex-end; gap: 6px; height: 190px; padding-top: 8px; overflow-x: auto; }
+.serie-col { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 42px; flex: 1; }
+.serie-barra {
+  width: 100%; background: var(--cor-primaria); border-radius: 5px 5px 0 0;
+  transition: height var(--t-drawer); min-height: 2px;
+}
+.serie-rot { font-size: 10.5px; color: var(--texto-mudo); white-space: nowrap; }
+.serie-val { font-size: 11px; font-weight: 600; }
