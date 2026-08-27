@@ -434,3 +434,11 @@ button.cal-item { font-family: inherit; cursor: pointer; }
 .gantt-hoje { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--cor-critico); opacity: .55; }
 .gantt-corta { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 768px) { .gantt-rotulo { width: 150px; } .gantt-corta { max-width: 90px; } }
+
+/* ---------- tabela analítica com rolagem horizontal (Sprint 23) ---------- */
+.dash-tab-scroll { overflow-x: auto; overflow-y: hidden; }
+.dash-tab { display: block; }
+.dash-tab .dash-tab-cab {
+  position: sticky; top: 0; z-index: 2; background: var(--superficie);
+}
+.dash-tab .scroll-box { overflow-x: visible; }

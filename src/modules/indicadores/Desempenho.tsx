@@ -287,6 +287,8 @@ export function Desempenho() {
         case 'demanda': return d.titulo.toLowerCase();
         case 'processo': return (d.processo?.nome ?? 'zzz').toLowerCase();
         case 'prioridade': return ['critica', 'alta', 'media', 'baixa'].indexOf(d.prioridade);
+        case 'peso': return pesoEfetivo(d);
+        case 'nota': return calcularNota([d]).nota ?? -1;
         case 'entrega': return d.concluida_em ?? '';
         case 'sla': return slaDe(d).rotulo;
         case 'responsavel': return (d.responsavel?.nome ?? '').toLowerCase();
@@ -430,16 +432,20 @@ export function Desempenho() {
           <div className="espaco" />
           <span className="mudo">clique na linha para o resumo · clique no cabeçalho para ordenar</span>
         </div>
+        <div className="dash-tab-scroll">
+        <div className="dash-tab" style={{ minWidth: 1080 }}>
         <div className="linha dash-tab-cab">
-          <Cab col="demanda" w="24%">Demanda</Cab>
-          <Cab col="processo" w="15%">Processo</Cab>
-          <Cab col="prioridade" w="9%">Prioridade</Cab>
-          <Cab col="prazo" w="9%">Prazo</Cab>
-          <Cab col="entrega" w="9%">Entrega</Cab>
-          <Cab col="sla" w="10%">SLA</Cab>
-          <Cab col="responsavel" w="12%">Responsável</Cab>
-          <span style={{ width: '7%', fontWeight: 600 }}>Recorrente</span>
-          <span style={{ width: '5%', fontWeight: 600 }}>Anexo</span>
+          <Cab col="demanda" w="300px">Demanda</Cab>
+          <Cab col="processo" w="170px">Processo</Cab>
+          <Cab col="prioridade" w="95px">Prioridade</Cab>
+          <Cab col="peso" w="70px">Peso</Cab>
+          <Cab col="prazo" w="95px">Prazo</Cab>
+          <Cab col="entrega" w="95px">Entrega</Cab>
+          <Cab col="sla" w="110px">SLA</Cab>
+          <Cab col="nota" w="75px">Nota</Cab>
+          <Cab col="responsavel" w="130px">Responsável</Cab>
+          <span style={{ width: '95px', flexShrink: 0, fontWeight: 600 }}>Recorrente</span>
+          <span style={{ width: '70px', flexShrink: 0, fontWeight: 600 }}>Anexo</span>
         </div>
         <div className="scroll-box" style={{ maxHeight: '38vh' }}>
           {tabela.length === 0 ? (
@@ -450,22 +456,35 @@ export function Desempenho() {
             return (
               <div key={d.id} className="linha dash-tab-linha" onClick={() => setDemandaSel(d)}
                    role="button" tabIndex={0}>
-                <span style={{ width: '24%' }} className="dash-corta" title={d.titulo}>{d.titulo}</span>
-                <span style={{ width: '15%' }} className="dash-corta suave">{d.processo?.nome ?? 'Avulsa'}</span>
-                <span style={{ width: '9%' }}>
+                <span style={{ width: '300px', flexShrink: 0 }} className="dash-corta" title={d.titulo}>{d.titulo}</span>
+                <span style={{ width: '170px', flexShrink: 0 }} className="dash-corta suave">{d.processo?.nome ?? 'Avulsa'}</span>
+                <span style={{ width: '95px', flexShrink: 0 }}>
                   <Badge tom={PRIORIDADE[d.prioridade].tom}>{PRIORIDADE[d.prioridade].rotulo}</Badge>
                 </span>
-                <span style={{ width: '9%' }} className="suave">{fmtData(d.prazo)}</span>
-                <span style={{ width: '9%' }} className="suave">{d.concluida_em ? fmtData(d.concluida_em) : '—'}</span>
-                <span style={{ width: '10%' }}><Badge tom={s.tom}>{s.rotulo}</Badge></span>
-                <span style={{ width: '12%' }} className="dash-corta suave">{ehSubstituicao(d) ? '🔄 ' : ''}{d.responsavel?.nome ?? '—'}</span>
-                <span style={{ width: '7%' }} className="suave">
+                <span style={{ width: '70px', flexShrink: 0 }} className="suave"
+                      title={`peso ${d.peso ?? 5} × prioridade × valor × complexidade`}>
+                  {pesoEfetivo(d).toFixed(1)}
+                </span>
+                <span style={{ width: '95px', flexShrink: 0 }} className="suave">{fmtData(d.prazo)}</span>
+                <span style={{ width: '95px', flexShrink: 0 }} className="suave">{d.concluida_em ? fmtData(d.concluida_em) : '—'}</span>
+                <span style={{ width: '110px', flexShrink: 0 }}><Badge tom={s.tom}>{s.rotulo}</Badge></span>
+                <span style={{ width: '75px', flexShrink: 0 }}>
+                  {(() => {
+                    const nd = calcularNota([d]);
+                    return nd.nota === null ? <span className="suave">—</span>
+                      : <Badge tom={faixaNota(nd.nota).tom}>{nd.nota}</Badge>;
+                  })()}
+                </span>
+                <span style={{ width: '130px', flexShrink: 0 }} className="dash-corta suave">{ehSubstituicao(d) ? '🔄 ' : ''}{d.responsavel?.nome ?? '—'}</span>
+                <span style={{ width: '95px', flexShrink: 0 }} className="suave">
                   {d.recorrencia ? `↻ ${RECORRENCIA_DEMANDA[d.recorrencia].split(' ')[0]}` : '—'}
                 </span>
-                <span style={{ width: '5%' }} className="suave">{nAnexos > 0 ? `📎 ${nAnexos}` : '—'}</span>
+                <span style={{ width: '70px', flexShrink: 0 }} className="suave">{nAnexos > 0 ? `📎 ${nAnexos}` : '—'}</span>
               </div>
             );
           })}
+        </div>
+        </div>
         </div>
       </div>
 
