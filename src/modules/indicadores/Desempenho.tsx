@@ -23,25 +23,30 @@ import {
 import type { NotaDesempenho } from '../../domain/desempenho';
 
 type Periodo = '30' | '90' | '365' | 'este_mes' | 'mes_passado' | 'este_ano' | 'tudo' | 'custom';
-type Metrica = 'qtd' | 'peso' | 'lead' | 'sla' | 'nota';
+type Metrica = 'qtd' | 'peso' | 'atraso' | 'sla' | 'nota';
 const METRICAS: Record<Metrica, string> = {
-  qtd: 'Quantidade', peso: 'Peso médio', lead: 'Lead time (h)', sla: 'SLA %', nota: 'Nota',
+  qtd: 'Quantidade', peso: 'Peso médio', atraso: 'Atraso médio (d)', sla: 'SLA %', nota: 'Nota',
 };
 
 const estrelas = (n: number | null) => (n === null ? '—' : `★ ${n.toFixed(1)}`);
 const isoDia = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const leadHoras = (d: Demanda): number | null =>
-  d.concluida_em ? (new Date(d.concluida_em).getTime() - new Date(d.criado_em).getTime()) / 3600e3 : null;
+/** Dias vencidos de uma demanda ainda não entregue (0 se está em dia). */
+const diasVencidos = (d: Demanda): number => {
+  const hoje = new Date(new Date().toISOString().slice(0, 10) + 'T12:00:00Z').getTime();
+  const prazo = new Date(d.prazo + 'T12:00:00Z').getTime();
+  return Math.max(0, Math.round((hoje - prazo) / 86400e3));
+};
 
 function metricaDe(lista: Demanda[], m: Metrica): { valor: number | null; display: string } {
   const concl = lista.filter((d) => d.status === 'concluida');
   if (m === 'qtd') return { valor: concl.length, display: String(concl.length) };
-  if (m === 'lead') {
-    const hs = concl.map(leadHoras).filter((x): x is number => x !== null);
-    if (!hs.length) return { valor: null, display: '—' };
-    const v = Math.round(hs.reduce((a, b) => a + b, 0) / hs.length);
-    return { valor: v, display: `${v}h` };
+  if (m === 'atraso') {
+    const atrs = concl.map(diasAtraso).filter((x) => x > 0);
+    if (!concl.length) return { valor: null, display: '—' };
+    if (!atrs.length) return { valor: 0, display: '0 d' };
+    const v = Math.round((atrs.reduce((a, b) => a + b, 0) / atrs.length) * 10) / 10;
+    return { valor: v, display: `${v} d` };
   }
   if (m === 'sla') {
     if (!concl.length) return { valor: null, display: '—' };
@@ -212,8 +217,9 @@ export function Desempenho() {
   const kpis = useMemo(() => {
     const noPrazo = concluidas.filter((d) =>
       d.motivo_conclusao === 'no_prazo' || d.motivo_conclusao === 'antecipada').length;
-    const hs = concluidas.map(leadHoras).filter((x): x is number => x !== null);
-    const leadH = hs.length ? Math.round(hs.reduce((a, b) => a + b, 0) / hs.length) : null;
+    const atrasos = concluidas.map(diasAtraso).filter((x) => x > 0);
+    const atrasoMedio = atrasos.length
+      ? Math.round((atrasos.reduce((a, b) => a + b, 0) / atrasos.length) * 10) / 10 : null;
     const avals = concluidas.filter((d) => d.avaliacao_nota !== null);
     const ativas = recorte.filter((d) => !['concluida', 'encerrada'].includes(d.status));
     const pesos = concluidas.map(pesoEfetivo);
@@ -223,8 +229,10 @@ export function Desempenho() {
       pesoTotal: Math.round(pesoTotal),
       concluidas: concluidas.length,
       sla: concluidas.length ? Math.round((noPrazo / concluidas.length) * 100) : null,
-      leadD: leadH !== null ? Math.round((leadH / 24) * 10) / 10 : null,
-      leadH,
+      atrasoMedio,
+      qtdAtrasadas: atrasos.length,
+      pctAtrasadas: concluidas.length ? Math.round((atrasos.length / concluidas.length) * 100) : null,
+      atrasoMax: atrasos.length ? Math.max(...atrasos) : 0,
       retrabalho: concluidas.reduce((s, d) => s + d.retrabalho, 0),
       nota: avals.length ? Math.round((avals.reduce((s, d) => s + (d.avaliacao_nota ?? 0), 0) / avals.length) * 10) / 10 : null,
       pendAval: concluidas.length - avals.length,
@@ -446,8 +454,12 @@ export function Desempenho() {
         <Kpi rotulo="Concluídas" valor={String(kpis.concluidas)} />
         <Kpi rotulo="SLA" valor={kpis.sla === null ? '—' : `${kpis.sla}%`}
              tom={kpis.sla !== null && kpis.sla < 70 ? 'critico' : kpis.sla !== null && kpis.sla >= 85 ? 'saudavel' : undefined} />
-        <Kpi rotulo="Lead (dias)" valor={kpis.leadD === null ? '—' : `${kpis.leadD}`} />
-        <Kpi rotulo="Lead (horas)" valor={kpis.leadH === null ? '—' : `${kpis.leadH}h`} />
+        <Kpi rotulo="Atraso médio" nota={kpis.qtdAtrasadas
+               ? `${kpis.qtdAtrasadas} de ${kpis.concluidas} (${kpis.pctAtrasadas}%) · pior ${kpis.atrasoMax} d`
+               : kpis.concluidas ? 'nenhuma entrega atrasada' : undefined}
+             valor={kpis.atrasoMedio === null ? (kpis.concluidas ? '0 d' : '—') : `${kpis.atrasoMedio} d`}
+             tom={kpis.atrasoMedio === null ? (kpis.concluidas ? 'saudavel' : undefined)
+                  : kpis.atrasoMedio >= 5 ? 'critico' : kpis.atrasoMedio >= 2 ? 'atencao' : undefined} />
         <Kpi rotulo="Retrabalho" valor={String(kpis.retrabalho)} tom={kpis.retrabalho > 0 ? 'critico' : undefined} />
         <Kpi rotulo="Peso médio" valor={kpis.pesoMedio === null ? '—' : String(kpis.pesoMedio)} />
         <Kpi rotulo="Ativas" valor={String(kpis.ativas)} />
@@ -643,7 +655,7 @@ export function Desempenho() {
   );
 }
 
-function Kpi(props: { rotulo: string; valor: string; tom?: 'critico' | 'atencao' | 'saudavel' }) {
+function Kpi(props: { rotulo: string; valor: string; nota?: string; tom?: 'critico' | 'atencao' | 'saudavel' }) {
   const cor = props.tom === 'critico' ? 'var(--cor-critico)'
     : props.tom === 'atencao' ? 'var(--cor-atencao)'
     : props.tom === 'saudavel' ? 'var(--cor-saudavel)' : 'var(--texto)';
@@ -651,6 +663,7 @@ function Kpi(props: { rotulo: string; valor: string; tom?: 'critico' | 'atencao'
     <div className="cartao dash-kpi">
       <div style={{ fontSize: 20, fontWeight: 700, color: cor, lineHeight: 1.15 }}>{props.valor}</div>
       <div className="mudo" style={{ fontSize: 11.5 }}>{props.rotulo}</div>
+      {props.nota && <div className="mudo" style={{ fontSize: 10.5, marginTop: 2 }}>{props.nota}</div>}
     </div>
   );
 }
