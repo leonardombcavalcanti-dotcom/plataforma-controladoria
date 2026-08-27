@@ -6,7 +6,7 @@ import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { useDemandas } from '../../data/demandas.queries';
 import { usePessoaAtual, usePessoas, useProcessos } from '../../data/queries';
 import {
-  type Demanda, type StatusDemanda, STATUS_DEMANDA, demandaAtrasada, ehSubstituicao,
+  type Demanda, type StatusDemanda, RECORRENCIA_DEMANDA, STATUS_DEMANDA, demandaAtrasada, ehSubstituicao,
 } from '../../domain/demandas';
 import { fmtData } from '../../domain/regras';
 import { Badge, Carregando } from '../../components/ui';
@@ -126,6 +126,7 @@ export function Calendario() {
       : d.status === 'solicitada' ? 'solicitada'
       : demandaAtrasada(d) ? 'atrasada' : 'andamento';
   const [diaAberto, setDiaAberto] = useState<string | null>(null);
+  const [prevista, setPrevista] = useState<Item | null>(null);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const hojeIso = iso(agora);
 
@@ -262,6 +263,8 @@ export function Calendario() {
   if (isLoading || !eu) return <Carregando linhas={5} />;
 
   const abrirDemanda = (d: Demanda) => nav(`/demandas/inbox/${d.id}`);
+  // Ocorrência prevista ainda não existe como demanda: abre o resumo da previsão
+  const abrirItem = (it: Item) => (it.projetada ? setPrevista(it) : abrirDemanda(it.d));
   const itensDoDia = diaAberto ? (itens.get(diaAberto) ?? []) : [];
 
   return (
@@ -368,7 +371,7 @@ export function Calendario() {
                     <div key={it.d.id + String(i)}
                          className={`cal-item ${classeItem(it.d, it.projetada)}`}
                          title={it.d.titulo}
-                         onClick={(e) => { e.stopPropagation(); abrirDemanda(it.d); }}>
+                         onClick={(e) => { e.stopPropagation(); abrirItem(it); }}>
                       {it.projetada ? '↻ ' : ''}{it.d.titulo}
                     </div>
                   ))}
@@ -395,7 +398,7 @@ export function Calendario() {
                   {s.lista.length === 0 ? (
                     <p className="mudo" style={{ padding: 8 }}>—</p>
                   ) : s.lista.map((it, i) => (
-                    <CartaoCrono key={it.d.id + String(i)} it={it} onAbrir={() => abrirDemanda(it.d)} />
+                    <CartaoCrono key={it.d.id + String(i)} it={it} onAbrir={() => abrirItem(it)} />
                   ))}
                 </div>
               </div>
@@ -443,7 +446,7 @@ export function Calendario() {
                       {doMes.map(({ dia, it }, i) => (
                         <li key={it.d.id + dia + String(i)} className="linha"
                             style={{ padding: '5px 0', borderBottom: '1px solid var(--borda)', cursor: 'pointer' }}
-                            onClick={() => abrirDemanda(it.d)}>
+                            onClick={() => abrirItem({ ...it, data: dia })}>
                           <span className="mudo" style={{ minWidth: 78 }}>{fmtData(dia)}</span>
                           <span>{it.projetada ? '↻ ' : ''}{it.d.titulo}</span>
                           {!it.projetada && (
@@ -486,6 +489,63 @@ export function Calendario() {
         </div>
       )}
 
+      {/* ===== OCORRÊNCIA PREVISTA (ainda não existe como demanda) ===== */}
+      {prevista && (
+        <>
+          <div className="drawer-fundo" onClick={() => setPrevista(null)} />
+          <aside className="drawer" style={{ width: 'min(520px, 92vw)' }} aria-label="Ocorrência prevista">
+            <header className="drawer-cabecalho" style={{ paddingBottom: 14 }}>
+              <div className="linha">
+                <span className="mudo">Ocorrência prevista · {prevista.d.processo?.nome ?? 'Avulsa'}</span>
+                <div className="espaco" />
+                <button className="btn mini" onClick={() => setPrevista(null)}>✕</button>
+              </div>
+              <div className="linha" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: 18 }}>↻ {prevista.d.titulo}</h1>
+                <Badge tom="info">prevista</Badge>
+                {prevista.substituto && <Badge tom="atencao">🔄 Substituição</Badge>}
+              </div>
+            </header>
+            <div className="drawer-corpo">
+              <div className="cartao secao" style={{ borderLeft: '3px solid var(--cor-primaria)' }}>
+                <p className="suave">
+                  Esta ocorrência ainda <strong>não existe como demanda</strong> — ela nasce quando a
+                  instância atual da série for concluída.
+                </p>
+              </div>
+              <div className="grade" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <div>
+                  <div className="mudo" style={{ fontSize: 11.5 }}>Vencimento previsto</div>
+                  <div><strong>{fmtData(prevista.data)}</strong></div>
+                </div>
+                <div>
+                  <div className="mudo" style={{ fontSize: 11.5 }}>Responsável nesta data</div>
+                  <div>
+                    <strong>{prevista.respNome ?? '—'}</strong>
+                    {prevista.substituto && prevista.titularNome
+                      ? ` (substituindo ${prevista.titularNome})` : ''}
+                  </div>
+                </div>
+                <div>
+                  <div className="mudo" style={{ fontSize: 11.5 }}>Recorrência</div>
+                  <div>{prevista.d.recorrencia ? RECORRENCIA_DEMANDA[prevista.d.recorrencia] : '—'}</div>
+                </div>
+                <div>
+                  <div className="mudo" style={{ fontSize: 11.5 }}>Instância atual da série</div>
+                  <div>vence em {fmtData(prevista.d.prazo)} · {prevista.d.responsavel?.nome ?? '—'}</div>
+                </div>
+              </div>
+              <div className="linha" style={{ marginTop: 18 }}>
+                <button className="btn primario"
+                        onClick={() => { const id = prevista.d.id; setPrevista(null); nav(`/demandas/inbox/${id}`); }}>
+                  Abrir a demanda atual da série
+                </button>
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
+
       {/* ===== RESUMO DO DIA (drawer local) ===== */}
       {diaAberto && (
         <>
@@ -506,7 +566,7 @@ export function Calendario() {
               <div className="grade">
                 {itensDoDia.map((it, i) => (
                   <CartaoCrono key={it.d.id + String(i)} it={it}
-                    onAbrir={() => { setDiaAberto(null); abrirDemanda(it.d); }} />
+                    onAbrir={() => { setDiaAberto(null); abrirItem(it); }} />
                 ))}
               </div>
             </div>
