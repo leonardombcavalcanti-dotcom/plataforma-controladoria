@@ -10,6 +10,7 @@ import { type Demanda, CAUSA_BLOQUEIO, PRIORIDADE, RECORRENCIA_DEMANDA, STATUS_D
 import { aguardaValidacao, comentarioNaoLido, fmtCompetencia, fmtData } from '../../domain/regras';
 import { Badge, Carregando, EstadoVazio } from '../../components/ui';
 import { StatusProcessos } from './StatusProcessos';
+import { ValidacaoLote } from './ValidacaoLote';
 
 export function Central() {
   const nav = useNavigate();
@@ -184,6 +185,8 @@ export function Central() {
           )}
         </div>
       )}
+
+      <ValidacaoLote />
 
       {/* Atrasadas da equipe — cards, só para gestor/executivo */}
       {(souGestor || souExecutivo) && atrasadasEquipe.length > 0 && (
